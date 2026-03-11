@@ -29,10 +29,6 @@ import {
   People as PeopleIcon,
   School as SchoolIcon,
   Class as ClassIcon,
-  MenuBook as SubjectsIcon,
-  EventAvailable as AttendanceIcon,
-  Assignment as HomeworkIcon,
-  Grade as MarksIcon,
   Payment as FeesIcon,
   Campaign as CampaignIcon,
   BarChart as ReportsIcon,
@@ -48,10 +44,6 @@ const menuItems = [
   { text: "Students", icon: <PeopleIcon />, path: "/admin/students" },
   { text: "Teachers", icon: <SchoolIcon />, path: "/admin/teachers" },
   { text: "Classes", icon: <ClassIcon />, path: "/admin/classes" },
-  { text: "Subjects", icon: <SubjectsIcon />, path: "/admin/subjects" },
-  { text: "Attendance", icon: <AttendanceIcon />, path: "/admin/attendance" },
-  { text: "Homework", icon: <HomeworkIcon />, path: "/admin/homework" },
-  { text: "Marks", icon: <MarksIcon />, path: "/admin/marks" },
   { text: "Fees", icon: <FeesIcon />, path: "/admin/fees" },
   { text: "Notices", icon: <CampaignIcon />, path: "/admin/notices" },
   { text: "Reports", icon: <ReportsIcon />, path: "/admin/reports" },
@@ -469,18 +461,18 @@ const Classes = () => {
                   textAlign: "center",
                 }}
               >
-                  <Typography variant="caption" sx={{ color: "#999" }}>
-                    Preview
-                  </Typography>
-                  <Typography
-                    variant="h6"
-                    sx={{ fontWeight: 700, color: "#D32F2F" }}
-                  >
-                    Class {formData.className} - {formData.section} (
-                    {formData.academicYear})
-                  </Typography>
-                </Box>
-              )}
+                <Typography variant="caption" sx={{ color: "#999" }}>
+                  Preview
+                </Typography>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 700, color: "#D32F2F" }}
+                >
+                  Class {formData.className} - {formData.section} (
+                  {formData.academicYear})
+                </Typography>
+              </Box>
+            )}
           </Box>
         </DialogContent>
 

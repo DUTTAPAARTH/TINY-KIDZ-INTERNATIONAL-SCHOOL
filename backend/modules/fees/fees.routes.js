@@ -1,62 +1,88 @@
 const express = require("express");
-const router = express.Router();
-const {
-  getAllFees,
-  createFee,
-  getFeeByStudent,
-  updateFee,
-  deleteFee,
-  getFeesSummary,
-} = require("./fees.controller");
-const auth = require("../../middleware/auth");
+const protect = require("../../middleware/auth");
 const authorize = require("../../middleware/role");
-const Student = require("../../models/Student");
+const {
+  getAllStructures,
+  createStructure,
+  updateStructure,
+  deleteStructure,
+} = require("./feeStructure.controller");
+const {
+  generateFeesForClass,
+  generateFeesForSchool,
+  generateFeesForClassRange,
+  generateFeeForStudent,
+  getStudentFeeRecords,
+  getClassFeeRecords,
+  updateOverdueStatus,
+  cleanupZeroRecords,
+  fixStatuses,
+} = require("./feeRecord.controller");
+const {
+  getFeeSummary,
+  getClassWiseReport,
+  getQuarterWiseReport,
+  getMonthlyCollection,
+  getFeeTypeWiseReport,
+  getDefaultersReport,
+  exportFeeData,
+  getDefaultersFull,
+} = require("./reports.controller");
+const {
+  recordPayment,
+  getPaymentHistory,
+  getPaymentById,
+  getTodayCollection,
+  deletePayment,
+  getDemandSlip,
+  getReceipt,
+  getStudentReceipts,
+} = require("./payment.controller");
 
-// Middleware to ensure user is authenticated
-router.use(auth);
+const router = express.Router();
 
-// GET all fees - Admin only
-router.get("/", authorize("admin"), getAllFees);
+// All routes are protected.
+router.use(protect);
 
-// POST create fee record - Admin only
-router.post("/", authorize("admin"), createFee);
+// Phase 1 - Fee Structure (Admin)
+router.get("/structure", authorize("admin"), getAllStructures);
+router.post("/structure", authorize("admin"), createStructure);
+router.put("/structure/:id", authorize("admin"), updateStructure);
+router.delete("/structure/:id", authorize("admin"), deleteStructure);
 
-// GET fee summary - Admin only
-router.get("/summary", authorize("admin"), getFeesSummary);
+// Phase 2 - Generate Fee Records (Admin)
+router.post("/generate/class", authorize("admin"), generateFeesForClass);
+router.post("/generate/school", authorize("admin"), generateFeesForSchool);
+router.post("/generate/range", authorize("admin"), generateFeesForClassRange);
+router.post("/generate/student", authorize("admin"), generateFeeForStudent);
+router.get("/", authorize("admin"), getClassFeeRecords);
+router.get("/class/:classId", authorize("admin"), getClassFeeRecords);
+router.get("/defaulters", authorize("admin"), getDefaultersFull);
+router.put("/update-overdue", authorize("admin"), updateOverdueStatus);
+router.delete("/cleanup", authorize("admin"), cleanupZeroRecords);
+router.delete("/cleanup-zero-records", authorize("admin"), cleanupZeroRecords);
+router.get("/fix-statuses", authorize("admin"), fixStatuses);
 
-// GET fee for specific student - Admin + Student (own record only)
-router.get(
-  "/student/:studentId",
-  authorize("admin", "student"),
-  async (req, res, next) => {
-    try {
-      if (req.user.role === "admin") return next();
+// Phase 5 - Reports and Analytics (Admin)
+router.get("/reports/summary", authorize("admin"), getFeeSummary);
+router.get("/reports/class-wise", authorize("admin"), getClassWiseReport);
+router.get("/reports/quarter-wise", authorize("admin"), getQuarterWiseReport);
+router.get("/reports/monthly", authorize("admin"), getMonthlyCollection);
+router.get("/reports/feetype-wise", authorize("admin"), getFeeTypeWiseReport);
+router.get("/reports/defaulters", authorize("admin"), getDefaultersReport);
+router.get("/reports/export", authorize("admin"), exportFeeData);
 
-      const student = await Student.findOne({ userId: req.user.id }).select(
-        "_id",
-      );
-      if (!student) {
-        return res.status(404).json({ message: "Student profile not found" });
-      }
+// Phase 3 - Payment Recording
+router.post("/payment", authorize("admin"), recordPayment);
+router.get("/payment/today", authorize("admin"), getTodayCollection);
+router.get("/payment/student/:id", getPaymentHistory);
+router.get("/payment/:id", getPaymentById);
+router.delete("/payment/:id", authorize("admin"), deletePayment);
+router.get("/demand-slip/:studentId", getDemandSlip);
+router.get("/receipt/student/:studentId", getStudentReceipts);
+router.get("/receipt/:paymentId", getReceipt);
 
-      if (student._id.toString() !== req.params.studentId) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-
-      next();
-    } catch (error) {
-      return res
-        .status(500)
-        .json({ message: "Failed to validate student access" });
-    }
-  },
-  getFeeByStudent,
-);
-
-// PUT update fee - Admin only
-router.put("/:id", authorize("admin"), updateFee);
-
-// DELETE fee - Admin only
-router.delete("/:id", authorize("admin"), deleteFee);
+// Admin + Student own records (validated in controller)
+router.get("/student/:studentId", getStudentFeeRecords);
 
 module.exports = router;

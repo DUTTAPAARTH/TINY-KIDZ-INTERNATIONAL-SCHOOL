@@ -6,10 +6,18 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:fees": "playwright test tests/fee-module-e2e.spec.js",
+    "test:fees:ui": "playwright test tests/fee-module-e2e.spec.js --ui",
+    "test:report": "playwright show-report"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.4",
+    "playwright": "^1.58.2",
     "typescript": "~5.9.3",
     "vite": "^7.3.1"
   },
@@ -28,6 +36,6 @@
     "react-hook-form": "^7.71.2",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.13.1",
-    "recharts": "^3.7.0"
+    "recharts": "^3.8.0"
   }
 }

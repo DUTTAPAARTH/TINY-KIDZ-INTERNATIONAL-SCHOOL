@@ -226,7 +226,7 @@ exports.createTeacher = async (req, res) => {
 
     // Populate and return
     const populatedTeacher = await Teacher.findById(newTeacher._id)
-      .populate("userId", "name email isActive -password")
+      .populate("userId", "name email isActive")
       .populate("classIds", "className section");
 
     res.status(201).json({
@@ -250,7 +250,7 @@ exports.getTeacher = async (req, res) => {
     const { id } = req.params;
 
     const teacher = await Teacher.findById(id)
-      .populate("userId", "name email isActive -password")
+      .populate("userId", "name email isActive")
       .populate("classIds", "className section");
 
     if (!teacher) {
@@ -353,7 +353,7 @@ exports.updateTeacher = async (req, res) => {
 
     // Return updated teacher
     const updatedTeacher = await Teacher.findById(id)
-      .populate("userId", "name email isActive -password")
+      .populate("userId", "name email isActive")
       .populate("classIds", "className section");
 
     res.status(200).json({
@@ -411,7 +411,7 @@ exports.getMe = async (req, res) => {
   try {
     // req.user is set by protect middleware
     const teacher = await Teacher.findOne({ userId: req.user._id })
-      .populate("userId", "name email isActive -password")
+      .populate("userId", "name email isActive")
       .populate("classIds", "className section");
 
     if (!teacher) {

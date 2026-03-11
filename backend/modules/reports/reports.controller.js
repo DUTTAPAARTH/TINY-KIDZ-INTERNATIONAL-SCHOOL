@@ -5,7 +5,7 @@ const Notice = require("../../models/Notice");
 const Homework = require("../../models/Homework");
 const Attendance = require("../../models/Attendance");
 const Mark = require("../../models/Marks");
-const Fee = require("../../models/Fee");
+const FeeRecord = require("../../models/FeeRecord");
 
 // @desc Get overall school statistics
 // @access Private/Admin
@@ -293,11 +293,11 @@ exports.getMarksSummary = async (req, res) => {
 // @access Private/Admin
 exports.getFeeSummary = async (req, res) => {
   try {
-    const feeSummary = await Fee.aggregate([
+    const feeSummary = await FeeRecord.aggregate([
       {
         $group: {
           _id: null,
-          totalFeeExpected: { $sum: "$totalFee" },
+          totalFeeExpected: { $sum: "$totalAmount" },
           totalCollected: { $sum: "$paidAmount" },
           paidCount: {
             $sum: { $cond: [{ $eq: ["$status", "Paid"] }, 1, 0] },

@@ -1,228 +1,241 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Box,
+  Button,
   Card,
   CardContent,
   Chip,
   Container,
-  LinearProgress,
+  Grid,
   Paper,
-  Snackbar,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   Typography,
 } from "@mui/material";
-import dayjs from "dayjs";
-import API from "../../services/authService";
 import StudentLayout from "../../components/StudentLayout";
+import DemandSlip from "../../components/fees/DemandSlip";
+import PaymentReceipt from "../../components/fees/PaymentReceipt";
+import PrintDialog from "../../components/fees/PrintDialog";
+import API from "../../services/authService";
 
-const formatCurrency = (amount = 0) =>
-  `₹${Number(amount).toLocaleString("en-IN")}`;
-
-const getStatusColor = (status) => {
-  if (status === "Paid") return "success";
-  if (status === "Partial") return "warning";
-  return "error";
-};
+const formatCurrency = (amount = 0) => `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 
 const StudentFees = () => {
-  const [feeRecord, setFeeRecord] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
+  const [student, setStudent] = useState(null);
+  const [feeRecords, setFeeRecords] = useState([]);
+  const [receipts, setReceipts] = useState([]);
+  const [demandSlipData, setDemandSlipData] = useState(null);
+  const [demandSlipOpen, setDemandSlipOpen] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const showSnackbar = (message, severity = "success") => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const fetchOwnFee = async () => {
-    setLoading(true);
+  const fetchStudentFees = async () => {
     try {
-      const meRes = await API.get("/students/me");
-      const studentId = meRes.data?.data?._id;
+      setLoading(true);
+      const studentRes = await API.get("/students/me");
+      const studentData = studentRes.data?.data;
+      setStudent(studentData || null);
 
-      if (!studentId) {
-        showSnackbar("Student profile not found", "error");
-        setLoading(false);
+      if (!studentData?._id) {
+        setFeeRecords([]);
+        setReceipts([]);
+        setDemandSlipData(null);
         return;
       }
 
-      const feeRes = await API.get(`/fees/student/${studentId}`);
-      const list = Array.isArray(feeRes.data) ? feeRes.data : [];
-      const latest = list[0] || null;
-      setFeeRecord(latest);
+      const [feeRes, receiptRes, demandRes] = await Promise.all([
+        API.get(`/fees/student/${studentData._id}`),
+        API.get(`/fees/receipt/student/${studentData._id}`),
+        API.get(`/fees/demand-slip/${studentData._id}`).catch(() => ({ data: null })),
+      ]);
 
-      if (!latest) {
-        showSnackbar("No fee record found", "info");
-      }
-    } catch (error) {
-      showSnackbar(
-        error.response?.data?.message || "Failed to load fee details",
-        "error",
-      );
+      setFeeRecords(Array.isArray(feeRes.data) ? feeRes.data : []);
+      setReceipts(Array.isArray(receiptRes.data) ? receiptRes.data : []);
+      setDemandSlipData(demandRes.data);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOwnFee();
+    fetchStudentFees();
   }, []);
 
-  const summary = useMemo(() => {
-    const total = Number(feeRecord?.totalFee || 0);
-    const paid = Number(feeRecord?.paidAmount || 0);
-    const due = Math.max(total - paid, 0);
-    const percentage = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
-    return { total, paid, due, percentage };
-  }, [feeRecord]);
+  const dueRecords = useMemo(
+    () => feeRecords.filter((record) => Number(record.dueAmount || 0) > 0),
+    [feeRecords],
+  );
 
-  const payments = useMemo(() => {
-    const list = feeRecord?.payments || [];
-    return [...list].sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [feeRecord]);
+  const totals = useMemo(
+    () => ({
+      total: feeRecords.reduce((sum, record) => sum + Number(record.totalAmount || 0), 0),
+      paid: feeRecords.reduce((sum, record) => sum + Number(record.paidAmount || 0), 0),
+      due: feeRecords.reduce((sum, record) => sum + Number(record.dueAmount || 0), 0),
+    }),
+    [feeRecords],
+  );
+
+  const handleOpenReceipt = async (paymentId) => {
+    const res = await API.get(`/fees/receipt/${paymentId}`);
+    setReceiptData(res.data);
+    setReceiptOpen(true);
+  };
 
   return (
     <StudentLayout>
-      <Container maxWidth="lg" sx={{ py: 3 }}>
-        <Typography
-          variant="h4"
-          sx={{ mb: 3, fontWeight: "bold", color: "#D32F2F" }}
-        >
+      <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700, color: "#D32F2F", mb: 1 }}>
           My Fees
         </Typography>
+        <Typography color="text.secondary" sx={{ mb: 3 }}>
+          View pending dues, payment history, and printable receipts.
+        </Typography>
 
-        <Card sx={{ mb: 3, borderLeft: "6px solid #D32F2F" }}>
-          <CardContent>
-            {loading ? (
-              <Typography>Loading fee details...</Typography>
-            ) : !feeRecord ? (
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderTop: "4px solid #D32F2F" }}>
+              <CardContent>
+                <Typography color="text.secondary">Total Fees</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>{formatCurrency(totals.total)}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderTop: "4px solid #2E7D32" }}>
+              <CardContent>
+                <Typography color="text.secondary">Paid</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: "#2E7D32" }}>{formatCurrency(totals.paid)}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderTop: "4px solid #D32F2F" }}>
+              <CardContent>
+                <Typography color="text.secondary">Due</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: "#D32F2F" }}>{formatCurrency(totals.due)}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        <Paper sx={{ p: 3, mb: 3, border: "1px solid #F2C7C7", bgcolor: "#FFF8F8" }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Demand Slip</Typography>
               <Typography color="text.secondary">
-                No fee record available yet
+                {student?.userId?.name ? `${student.userId.name} (${student.admissionNumber || "-"})` : "Student account"}
               </Typography>
-            ) : (
-              <>
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 3,
-                    alignItems: "center",
-                    mb: 2,
-                  }}
-                >
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    Total Fee: {formatCurrency(summary.total)}
-                  </Typography>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: "#2e7d32", fontWeight: 700 }}
-                  >
-                    Paid: {formatCurrency(summary.paid)}
-                  </Typography>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: "#D32F2F", fontWeight: 700 }}
-                  >
-                    Due: {formatCurrency(summary.due)}
-                  </Typography>
-                  <Chip
-                    label={feeRecord.status}
-                    color={getStatusColor(feeRecord.status)}
-                  />
-                </Box>
-
-                <LinearProgress
-                  variant="determinate"
-                  value={summary.percentage}
-                  sx={{
-                    height: 12,
-                    borderRadius: 8,
-                    bgcolor: "#fdecea",
-                    "& .MuiLinearProgress-bar": { bgcolor: "#D32F2F" },
-                  }}
-                />
-                <Typography
-                  sx={{ mt: 1, fontSize: 13, color: "text.secondary" }}
-                >
-                  Payment Completion: {summary.percentage.toFixed(1)}%
-                </Typography>
-              </>
+              <Typography color="text.secondary">
+                {dueRecords.length > 0
+                  ? `${dueRecords.length} pending fee record(s) available for print`
+                  : "No pending dues right now"}
+              </Typography>
+            </Box>
+            {demandSlipData?.items?.length > 0 && (
+              <Button variant="contained" onClick={() => setDemandSlipOpen(true)} sx={{ bgcolor: "#D32F2F", "&:hover": { bgcolor: "#B71C1C" } }}>
+                Download Demand Slip
+              </Button>
             )}
-          </CardContent>
-        </Card>
+          </Box>
+        </Paper>
 
-        <Paper sx={{ p: 2 }}>
-          <Typography
-            variant="h6"
-            sx={{ mb: 2, color: "#D32F2F", fontWeight: 700 }}
-          >
-            Payment History
-          </Typography>
-
-          <TableContainer>
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Pending Fee Records</Typography>
+          {loading ? (
+            <Typography>Loading fee records...</Typography>
+          ) : dueRecords.length === 0 ? (
+            <Typography color="text.secondary">No pending fees.</Typography>
+          ) : (
             <Table>
               <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Amount (₹)</TableCell>
-                  <TableCell>Method</TableCell>
-                  <TableCell>Note</TableCell>
+                <TableRow sx={{ bgcolor: "#FFEBEE" }}>
+                  <TableCell sx={{ fontWeight: 700 }}>Fee Type</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Quarter</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Paid</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Due</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Due Date</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {payments.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} align="center">
-                      No payments recorded yet
+                {dueRecords.map((record) => (
+                  <TableRow key={record._id}>
+                    <TableCell>{record.description || record.feeType}</TableCell>
+                    <TableCell>{record.quarter || "-"}</TableCell>
+                    <TableCell>{formatCurrency(record.totalAmount)}</TableCell>
+                    <TableCell>{formatCurrency(record.paidAmount)}</TableCell>
+                    <TableCell sx={{ color: "#D32F2F", fontWeight: 700 }}>{formatCurrency(record.dueAmount)}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label={record.status} color={record.status === "PAID" ? "success" : "error"} variant="outlined" />
                     </TableCell>
+                    <TableCell>{record.dueDate ? String(record.dueDate).slice(0, 10) : "-"}</TableCell>
                   </TableRow>
-                ) : (
-                  payments.map((payment, index) => (
-                    <TableRow key={`${payment.date}-${index}`}>
-                      <TableCell>
-                        {dayjs(payment.date).format("DD/MM/YYYY")}
-                      </TableCell>
-                      <TableCell>{formatCurrency(payment.amount)}</TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={payment.method}
-                          variant="outlined"
-                          color="primary"
-                        />
-                      </TableCell>
-                      <TableCell>{payment.note || "-"}</TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
-          </TableContainer>
+          )}
         </Paper>
 
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={3500}
-          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-        >
-          <Alert
-            severity={snackbar.severity}
-            onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Payment History</Typography>
+          {loading ? (
+            <Typography>Loading receipts...</Typography>
+          ) : receipts.length === 0 ? (
+            <Typography color="text.secondary">No payments recorded yet.</Typography>
+          ) : (
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: "#FFEBEE" }}>
+                  <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Receipt</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Fee</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Amount</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Method</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Action</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {receipts.map((payment) => (
+                  <TableRow key={payment._id}>
+                    <TableCell>{payment.paymentDate ? String(payment.paymentDate).slice(0, 10) : "-"}</TableCell>
+                    <TableCell>{payment.receiptNumber || "-"}</TableCell>
+                    <TableCell>{payment.feeRecordId?.description || payment.feeRecordId?.feeType || "-"}</TableCell>
+                    <TableCell>{formatCurrency(payment.amount)}</TableCell>
+                    <TableCell>{payment.method || "-"}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={payment.feeRecordId?.status || "-"}
+                        color={payment.feeRecordId?.status === "PAID" ? "success" : "error"}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Button size="small" variant="contained" onClick={() => handleOpenReceipt(payment._id)} sx={{ bgcolor: "#D32F2F", "&:hover": { bgcolor: "#B71C1C" }, textTransform: "none" }}>
+                        Print Receipt
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Paper>
       </Container>
+
+      <PrintDialog open={demandSlipOpen} onClose={() => setDemandSlipOpen(false)} title="Demand Slip">
+        <DemandSlip data={demandSlipData} />
+      </PrintDialog>
+
+      <PrintDialog open={receiptOpen} onClose={() => setReceiptOpen(false)} title="Payment Receipt">
+        <PaymentReceipt payment={receiptData} />
+      </PrintDialog>
     </StudentLayout>
   );
 };

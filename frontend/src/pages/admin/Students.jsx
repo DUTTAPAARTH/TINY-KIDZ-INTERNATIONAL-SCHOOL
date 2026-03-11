@@ -12,6 +12,7 @@ import {
   DialogTitle,
   FormControl,
   Grid,
+  InputAdornment,
   IconButton,
   InputLabel,
   MenuItem,
@@ -31,14 +32,16 @@ import {
   People as PeopleIcon,
   School as SchoolIcon,
   Class as ClassIcon,
-  MenuBook as SubjectsIcon,
-  EventAvailable as AttendanceIcon,
-  Assignment as HomeworkIcon,
-  Grade as MarksIcon,
   Payment as FeesIcon,
   Campaign as CampaignIcon,
   Assessment as ReportsIcon,
+  Visibility,
+  VisibilityOff,
 } from "@mui/icons-material";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import dayjs from "dayjs";
 import { DataGrid } from "@mui/x-data-grid";
 import { logout } from "../../redux/authSlice";
 import Navbar from "../../components/Navbar";
@@ -50,10 +53,6 @@ const menuItems = [
   { text: "Students", icon: <PeopleIcon />, path: "/admin/students" },
   { text: "Teachers", icon: <SchoolIcon />, path: "/admin/teachers" },
   { text: "Classes", icon: <ClassIcon />, path: "/admin/classes" },
-  { text: "Subjects", icon: <SubjectsIcon />, path: "/admin/subjects" },
-  { text: "Attendance", icon: <AttendanceIcon />, path: "/admin/attendance" },
-  { text: "Homework", icon: <HomeworkIcon />, path: "/admin/homework" },
-  { text: "Marks", icon: <MarksIcon />, path: "/admin/marks" },
   { text: "Fees", icon: <FeesIcon />, path: "/admin/fees" },
   { text: "Notices", icon: <CampaignIcon />, path: "/admin/notices" },
   { text: "Reports", icon: <ReportsIcon />, path: "/admin/reports" },
@@ -73,7 +72,7 @@ const Students = () => {
     page: 0,
     pageSize: 25,
   });
-    const [sortModel, setSortModel] = useState([]);
+  const [sortModel, setSortModel] = useState([]);
   const [totalRows, setTotalRows] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [classFilter, setClassFilter] = useState("all");
@@ -84,6 +83,7 @@ const Students = () => {
   const [currentStudent, setCurrentStudent] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -92,7 +92,6 @@ const Students = () => {
     password: "",
     admissionNumber: "",
     classId: "",
-    rollNumber: "",
     dateOfBirth: "",
     parentName: "",
     parentPhone: "",
@@ -117,18 +116,17 @@ const Students = () => {
         limit: paginationModel.pageSize,
         search: searchQuery,
       };
-      
+
       // Add classId filter if not "all"
       if (classFilter && classFilter !== "all") {
         params.classId = classFilter;
       }
-            // Add sorting if specified
-            if (sortModel.length > 0) {
-              params.sortBy = sortModel[0].field;
-              params.sortOrder = sortModel[0].sort;
-            }
-      
-      
+      // Add sorting if specified
+      if (sortModel.length > 0) {
+        params.sortBy = sortModel[0].field;
+        params.sortOrder = sortModel[0].sort;
+      }
+
       const response = await API.get("/students", { params });
 
       if (response.data.success) {
@@ -157,7 +155,13 @@ const Students = () => {
 
   useEffect(() => {
     fetchStudents();
-  }, [paginationModel.page, paginationModel.pageSize, searchQuery, classFilter, sortModel]);
+  }, [
+    paginationModel.page,
+    paginationModel.pageSize,
+    searchQuery,
+    classFilter,
+    sortModel,
+  ]);
 
   useEffect(() => {
     fetchClasses();
@@ -205,13 +209,13 @@ const Students = () => {
   const handleAddStudent = () => {
     setDialogMode("add");
     setCurrentStudent(null);
+    setShowPassword(false);
     setFormData({
       name: "",
       email: "",
       password: "",
       admissionNumber: "",
       classId: "",
-      rollNumber: "",
       dateOfBirth: "",
       parentName: "",
       parentPhone: "",
@@ -226,13 +230,13 @@ const Students = () => {
   const handleEditStudent = (student) => {
     setDialogMode("edit");
     setCurrentStudent(student);
+    setShowPassword(false);
     setFormData({
       name: student.userId?.name || "",
       email: student.userId?.email || "",
       password: "", // Don't show password in edit mode
       admissionNumber: student.admissionNumber || "",
       classId: student.classId?._id || "",
-      rollNumber: student.rollNumber || "",
       dateOfBirth: student.dateOfBirth || "",
       parentName: student.parentName || "",
       parentPhone: student.parentPhone || "",
@@ -247,11 +251,18 @@ const Students = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setCurrentStudent(null);
+    setShowPassword(false);
   };
 
   // Handle form change
   const handleFormChange = (event) => {
     const { name, value } = event.target;
+    if (name === "parentPhone") {
+      const numericValue = value.replace(/\D/g, "").slice(0, 10);
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -262,8 +273,13 @@ const Students = () => {
       if (
         !formData.name ||
         !formData.email ||
+        !formData.dateOfBirth ||
+        !formData.gender ||
         !formData.admissionNumber ||
-        !formData.classId
+        !formData.classId ||
+        !formData.parentName ||
+        !formData.parentPhone ||
+        !formData.address
       ) {
         showSnackbar("Please fill all required fields", "error");
         return;
@@ -284,16 +300,13 @@ const Students = () => {
         email: formData.email,
         admissionNumber: formData.admissionNumber,
         classId: formData.classId,
+        dateOfBirth: formData.dateOfBirth,
+        parentName: formData.parentName,
+        parentPhone: formData.parentPhone,
+        address: formData.address,
         gender: formData.gender,
         academicYear: formData.academicYear,
       };
-
-      // Add optional fields if they exist
-      if (formData.rollNumber) payload.rollNumber = formData.rollNumber;
-      if (formData.dateOfBirth) payload.dateOfBirth = formData.dateOfBirth;
-      if (formData.parentName) payload.parentName = formData.parentName;
-      if (formData.parentPhone) payload.parentPhone = formData.parentPhone;
-      if (formData.address) payload.address = formData.address;
 
       if (dialogMode === "add") {
         payload.password = formData.password;
@@ -386,15 +399,6 @@ const Students = () => {
       },
     },
     {
-      field: "rollNumber",
-      headerName: "Roll No ↕",
-      width: 110,
-      headerAlign: "left",
-      align: "left",
-      sortable: true,
-      valueGetter: (value, row) => row.rollNumber || "-",
-    },
-    {
       field: "parentName",
       headerName: "Parent Name ↕",
       width: 200,
@@ -444,7 +448,7 @@ const Students = () => {
   return (
     <Box sx={{ display: "flex" }}>
       <Navbar title="Admin" onLogout={handleLogout} />
-      <Sidebar 
+      <Sidebar
         menuItems={menuItems}
         activePath={activePath}
         onMenuClick={handleMenuClick}
@@ -526,11 +530,11 @@ const Students = () => {
                   columns={columns}
                   paginationModel={paginationModel}
                   onPaginationModelChange={handlePaginationChange}
-                                    sortModel={sortModel}
-                                    onSortModelChange={handleSortModelChange}
+                  sortModel={sortModel}
+                  onSortModelChange={handleSortModelChange}
                   pageSizeOptions={[10, 25, 50, 100]}
                   paginationMode="server"
-                                    sortingMode="server"
+                  sortingMode="server"
                   rowCount={totalRows}
                   loading={loading}
                   disableRowSelectionOnClick
@@ -571,13 +575,27 @@ const Students = () => {
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
+        scroll="paper"
       >
         <DialogTitle sx={{ bgcolor: "#D32F2F", color: "white" }}>
           {dialogMode === "add" ? "Add New Student" : "Edit Student"}
         </DialogTitle>
-        <DialogContent sx={{ mt: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+        <DialogContent
+          dividers
+          sx={{
+            mt: 1,
+            maxHeight: "70vh",
+            overflowY: "auto",
+            px: 3,
+            py: 2,
+          }}
+        >
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <Typography sx={{ fontWeight: 700, color: "#D32F2F", mt: 0.5 }}>
+                Personal Information
+              </Typography>
+
               <TextField
                 fullWidth
                 label="Full Name"
@@ -594,8 +612,7 @@ const Students = () => {
                   },
                 }}
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
+
               <TextField
                 fullWidth
                 label="Email"
@@ -613,29 +630,92 @@ const Students = () => {
                   },
                 }}
               />
-            </Grid>
-            {dialogMode === "add" && (
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Password"
-                  name="password"
-                  type="password"
-                  value={formData.password}
+
+              {dialogMode === "add" && (
+                <>
+                  <TextField
+                    fullWidth
+                    label="Password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={handleFormChange}
+                    required
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            edge="end"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                          >
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      "& .MuiOutlinedInput-root.Mui-focused fieldset": {
+                        borderColor: "#D32F2F",
+                      },
+                      "& .MuiInputLabel-root.Mui-focused": {
+                        color: "#D32F2F",
+                      },
+                    }}
+                  />
+                </>
+              )}
+
+              <DatePicker
+                label="Date of Birth"
+                value={
+                  formData.dateOfBirth ? dayjs(formData.dateOfBirth) : null
+                }
+                onChange={(newValue) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    dateOfBirth: newValue ? newValue.format("YYYY-MM-DD") : "",
+                  }));
+                }}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    required: true,
+                    sx: {
+                      "& .MuiOutlinedInput-root.Mui-focused fieldset": {
+                        borderColor: "#D32F2F",
+                      },
+                      "& .MuiInputLabel-root.Mui-focused": {
+                        color: "#D32F2F",
+                      },
+                    },
+                  },
+                }}
+              />
+
+              <FormControl fullWidth required>
+                <InputLabel sx={{ "&.Mui-focused": { color: "#D32F2F" } }}>
+                  Gender
+                </InputLabel>
+                <Select
+                  name="gender"
+                  value={formData.gender}
+                  label="Gender"
                   onChange={handleFormChange}
-                  required
                   sx={{
-                    "& .MuiOutlinedInput-root.Mui-focused fieldset": {
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
                       borderColor: "#D32F2F",
                     },
-                    "& .MuiInputLabel-root.Mui-focused": {
-                      color: "#D32F2F",
-                    },
                   }}
-                />
-              </Grid>
-            )}
-            <Grid item xs={12} sm={dialogMode === "add" ? 6 : 6}>
+                >
+                  <MenuItem value="Male">Male</MenuItem>
+                  <MenuItem value="Female">Female</MenuItem>
+                </Select>
+              </FormControl>
+
+              <Typography sx={{ fontWeight: 700, color: "#D32F2F", mt: 1 }}>
+                Academic Information
+              </Typography>
+
               <TextField
                 fullWidth
                 label="Admission Number"
@@ -652,8 +732,7 @@ const Students = () => {
                   },
                 }}
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
+
               <FormControl fullWidth required>
                 <InputLabel sx={{ "&.Mui-focused": { color: "#D32F2F" } }}>
                   Class
@@ -676,73 +755,18 @@ const Students = () => {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Roll Number"
-                name="rollNumber"
-                type="number"
-                value={formData.rollNumber}
-                onChange={handleFormChange}
-                sx={{
-                  "& .MuiOutlinedInput-root.Mui-focused fieldset": {
-                    borderColor: "#D32F2F",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    color: "#D32F2F",
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Date of Birth"
-                name="dateOfBirth"
-                type="date"
-                value={formData.dateOfBirth}
-                onChange={handleFormChange}
-                InputLabelProps={{ shrink: true }}
-                sx={{
-                  "& .MuiOutlinedInput-root.Mui-focused fieldset": {
-                    borderColor: "#D32F2F",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    color: "#D32F2F",
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ "&.Mui-focused": { color: "#D32F2F" } }}>
-                  Gender
-                </InputLabel>
-                <Select
-                  name="gender"
-                  value={formData.gender}
-                  label="Gender"
-                  onChange={handleFormChange}
-                  sx={{
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#D32F2F",
-                    },
-                  }}
-                >
-                  <MenuItem value="Male">Male</MenuItem>
-                  <MenuItem value="Female">Female</MenuItem>
-                  <MenuItem value="Other">Other</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
+
+              <Typography sx={{ fontWeight: 700, color: "#D32F2F", mt: 1 }}>
+                Parent & Contact
+              </Typography>
+
               <TextField
                 fullWidth
                 label="Parent Name"
                 name="parentName"
                 value={formData.parentName}
                 onChange={handleFormChange}
+                required
                 sx={{
                   "& .MuiOutlinedInput-root.Mui-focused fieldset": {
                     borderColor: "#D32F2F",
@@ -752,14 +776,14 @@ const Students = () => {
                   },
                 }}
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
+
               <TextField
                 fullWidth
                 label="Parent Phone"
                 name="parentPhone"
                 value={formData.parentPhone}
                 onChange={handleFormChange}
+                required
                 inputProps={{ maxLength: 10 }}
                 helperText="10 digits"
                 sx={{
@@ -771,14 +795,14 @@ const Students = () => {
                   },
                 }}
               />
-            </Grid>
-            <Grid item xs={12}>
+
               <TextField
                 fullWidth
                 label="Address"
                 name="address"
                 value={formData.address}
                 onChange={handleFormChange}
+                required
                 multiline
                 rows={3}
                 sx={{
@@ -790,8 +814,8 @@ const Students = () => {
                   },
                 }}
               />
-            </Grid>
-          </Grid>
+            </Box>
+          </LocalizationProvider>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={handleCloseDialog} sx={{ color: "#666" }}>

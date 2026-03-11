@@ -12,6 +12,7 @@ import {
   DialogTitle,
   FormControl,
   Grid,
+  InputAdornment,
   IconButton,
   InputLabel,
   MenuItem,
@@ -22,7 +23,6 @@ import {
   Toolbar,
   Typography,
   Chip,
-  OutlinedInput,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -32,13 +32,11 @@ import {
   People as PeopleIcon,
   School as SchoolIcon,
   Class as ClassIcon,
-  MenuBook as SubjectsIcon,
-  EventAvailable as AttendanceIcon,
-  Assignment as HomeworkIcon,
-  Grade as MarksIcon,
   Payment as FeesIcon,
   Campaign as CampaignIcon,
   Assessment as ReportsIcon,
+  Visibility,
+  VisibilityOff,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { logout } from "../../redux/authSlice";
@@ -51,10 +49,6 @@ const menuItems = [
   { text: "Students", icon: <PeopleIcon />, path: "/admin/students" },
   { text: "Teachers", icon: <SchoolIcon />, path: "/admin/teachers" },
   { text: "Classes", icon: <ClassIcon />, path: "/admin/classes" },
-  { text: "Subjects", icon: <SubjectsIcon />, path: "/admin/subjects" },
-  { text: "Attendance", icon: <AttendanceIcon />, path: "/admin/attendance" },
-  { text: "Homework", icon: <HomeworkIcon />, path: "/admin/homework" },
-  { text: "Marks", icon: <MarksIcon />, path: "/admin/marks" },
   { text: "Fees", icon: <FeesIcon />, path: "/admin/fees" },
   { text: "Notices", icon: <CampaignIcon />, path: "/admin/notices" },
   { text: "Reports", icon: <ReportsIcon />, path: "/admin/reports" },
@@ -85,6 +79,7 @@ const Teachers = () => {
   const [currentTeacher, setCurrentTeacher] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [teacherToDelete, setTeacherToDelete] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -205,6 +200,7 @@ const Teachers = () => {
   const handleAddTeacher = () => {
     setDialogMode("add");
     setCurrentTeacher(null);
+    setShowPassword(false);
     setFormData({
       name: "",
       email: "",
@@ -221,6 +217,7 @@ const Teachers = () => {
   const handleEditTeacher = (teacher) => {
     setDialogMode("edit");
     setCurrentTeacher(teacher);
+    setShowPassword(false);
     setFormData({
       name: teacher.userId?.name || "",
       email: teacher.userId?.email || "",
@@ -237,11 +234,18 @@ const Teachers = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setCurrentTeacher(null);
+    setShowPassword(false);
   };
 
   // Handle form change
   const handleFormChange = (event) => {
     const { name, value } = event.target;
+    if (name === "phone") {
+      const numericValue = value.replace(/\D/g, "").slice(0, 10);
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -250,7 +254,7 @@ const Teachers = () => {
     const { value } = event.target;
     setFormData((prev) => ({
       ...prev,
-      classIds: typeof value === "string" ? value.split(",") : value,
+      classIds: value ? [value] : [],
     }));
   };
 
@@ -447,7 +451,7 @@ const Teachers = () => {
   return (
     <Box sx={{ display: "flex" }}>
       <Navbar title="Admin" onLogout={handleLogout} />
-      <Sidebar 
+      <Sidebar
         menuItems={menuItems}
         activePath={activePath}
         onMenuClick={handleMenuClick}
@@ -562,59 +566,83 @@ const Teachers = () => {
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
+        scroll="paper"
       >
         <DialogTitle sx={{ bgcolor: "#D32F2F", color: "white" }}>
           {dialogMode === "add" ? "Add New Teacher" : "Edit Teacher"}
         </DialogTitle>
-        <DialogContent sx={{ mt: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Full Name"
-                name="name"
-                value={formData.name}
-                onChange={handleFormChange}
-                required
-                sx={{
-                  "& .MuiOutlinedInput-root.Mui-focused fieldset": {
-                    borderColor: "#D32F2F",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    color: "#D32F2F",
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleFormChange}
-                required
-                sx={{
-                  "& .MuiOutlinedInput-root.Mui-focused fieldset": {
-                    borderColor: "#D32F2F",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    color: "#D32F2F",
-                  },
-                }}
-              />
-            </Grid>
+        <DialogContent
+          dividers
+          sx={{
+            mt: 1,
+            maxHeight: "70vh",
+            overflowY: "auto",
+            px: 3,
+            py: 2,
+          }}
+        >
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Typography sx={{ fontWeight: 700, color: "#D32F2F", mt: 0.5 }}>
+              Personal Information
+            </Typography>
+
+            <TextField
+              fullWidth
+              label="Full Name"
+              name="name"
+              value={formData.name}
+              onChange={handleFormChange}
+              required
+              sx={{
+                "& .MuiOutlinedInput-root.Mui-focused fieldset": {
+                  borderColor: "#D32F2F",
+                },
+                "& .MuiInputLabel-root.Mui-focused": {
+                  color: "#D32F2F",
+                },
+              }}
+            />
+
+            <TextField
+              fullWidth
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleFormChange}
+              required
+              sx={{
+                "& .MuiOutlinedInput-root.Mui-focused fieldset": {
+                  borderColor: "#D32F2F",
+                },
+                "& .MuiInputLabel-root.Mui-focused": {
+                  color: "#D32F2F",
+                },
+              }}
+            />
+
             {dialogMode === "add" && (
-              <Grid item xs={12} sm={6}>
+              <>
                 <TextField
                   fullWidth
                   label="Password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={handleFormChange}
                   required
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          edge="end"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                   sx={{
                     "& .MuiOutlinedInput-root.Mui-focused fieldset": {
                       borderColor: "#D32F2F",
@@ -624,114 +652,105 @@ const Teachers = () => {
                     },
                   }}
                 />
-              </Grid>
+              </>
             )}
-            <Grid item xs={12} sm={dialogMode === "add" ? 6 : 6}>
-              <TextField
-                fullWidth
-                label="Employee ID"
-                name="employeeId"
-                value={formData.employeeId}
-                onChange={handleFormChange}
-                required
-                sx={{
-                  "& .MuiOutlinedInput-root.Mui-focused fieldset": {
-                    borderColor: "#D32F2F",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    color: "#D32F2F",
+
+            <Typography sx={{ fontWeight: 700, color: "#D32F2F", mt: 1 }}>
+              Professional Information
+            </Typography>
+
+            <TextField
+              fullWidth
+              label="Employee ID"
+              name="employeeId"
+              value={formData.employeeId}
+              onChange={handleFormChange}
+              required
+              sx={{
+                "& .MuiOutlinedInput-root.Mui-focused fieldset": {
+                  borderColor: "#D32F2F",
+                },
+                "& .MuiInputLabel-root.Mui-focused": {
+                  color: "#D32F2F",
+                },
+              }}
+            />
+
+            <TextField
+              fullWidth
+              label="Phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handleFormChange}
+              required
+              inputProps={{ maxLength: 10 }}
+              helperText="10 digits"
+              sx={{
+                "& .MuiOutlinedInput-root.Mui-focused fieldset": {
+                  borderColor: "#D32F2F",
+                },
+                "& .MuiInputLabel-root.Mui-focused": {
+                  color: "#D32F2F",
+                },
+              }}
+            />
+
+            <TextField
+              fullWidth
+              label="Qualification"
+              name="qualification"
+              value={formData.qualification}
+              onChange={handleFormChange}
+              required
+              placeholder="e.g., B.Ed, M.Sc"
+              sx={{
+                "& .MuiOutlinedInput-root.Mui-focused fieldset": {
+                  borderColor: "#D32F2F",
+                },
+                "& .MuiInputLabel-root.Mui-focused": {
+                  color: "#D32F2F",
+                },
+              }}
+            />
+
+            <Typography sx={{ fontWeight: 700, color: "#D32F2F", mt: 1 }}>
+              Class Assignment
+            </Typography>
+
+            <FormControl fullWidth>
+              <InputLabel
+                id="classes-label"
+                sx={{ "&.Mui-focused": { color: "#D32F2F" } }}
+              >
+                Class
+              </InputLabel>
+              <Select
+                labelId="classes-label"
+                value={formData.classIds[0] || ""}
+                onChange={handleClassChange}
+                label="Class"
+                MenuProps={{
+                  PaperProps: {
+                    sx: { maxHeight: 320 },
                   },
                 }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleFormChange}
-                required
-                inputProps={{ maxLength: 10 }}
-                helperText="10 digits"
                 sx={{
-                  "& .MuiOutlinedInput-root.Mui-focused fieldset": {
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
                     borderColor: "#D32F2F",
                   },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    color: "#D32F2F",
-                  },
                 }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Qualification"
-                name="qualification"
-                value={formData.qualification}
-                onChange={handleFormChange}
-                required
-                placeholder="e.g., B.Ed, M.Sc"
-                sx={{
-                  "& .MuiOutlinedInput-root.Mui-focused fieldset": {
-                    borderColor: "#D32F2F",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    color: "#D32F2F",
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel
-                  id="classes-label"
-                  sx={{ "&.Mui-focused": { color: "#D32F2F" } }}
-                >
-                  Assigned Classes
-                </InputLabel>
-                <Select
-                  labelId="classes-label"
-                  multiple
-                  value={formData.classIds}
-                  onChange={handleClassChange}
-                  input={<OutlinedInput label="Assigned Classes" />}
-                  renderValue={(selected) => (
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                      {selected.map((value) => {
-                        const cls = classes.find((c) => c._id === value);
-                        return (
-                          <Chip
-                            key={value}
-                            label={
-                              cls ? `${cls.className}-${cls.section}` : value
-                            }
-                            size="small"
-                            sx={{
-                              bgcolor: "#ffebee",
-                              color: "#D32F2F",
-                            }}
-                          />
-                        );
-                      })}
-                    </Box>
-                  )}
-                  sx={{
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#D32F2F",
-                    },
-                  }}
-                >
-                  {classes.map((cls) => (
-                    <MenuItem key={cls._id} value={cls._id}>
-                      Class {cls.className}-{cls.section}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {classes.map((cls) => (
+                  <MenuItem key={cls._id} value={cls._id}>
+                    Class {cls.className}-{cls.section}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={handleCloseDialog} sx={{ color: "#666" }}>

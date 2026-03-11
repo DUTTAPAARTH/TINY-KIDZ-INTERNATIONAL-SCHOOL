@@ -14,12 +14,12 @@ exports.getAllStudents = async (req, res) => {
 
     // Build search query
     const query = {};
-    
+
     // Add search filter
     if (search) {
       query.$or = [{ admissionNumber: { $regex: search, $options: "i" } }];
     }
-    
+
     // Add class filter
     if (classId) {
       query.classId = classId;
@@ -146,7 +146,7 @@ exports.createStudent = async (req, res) => {
 
     // Populate and return
     const populatedStudent = await Student.findById(newStudent._id)
-      .populate("userId", "name email isActive -password")
+      .populate("userId", "name email isActive")
       .populate("classId", "className section");
 
     res.status(201).json({
@@ -174,7 +174,7 @@ exports.getStudent = async (req, res) => {
     const { id } = req.params;
 
     const student = await Student.findById(id)
-      .populate("userId", "name email isActive -password")
+      .populate("userId", "name email isActive")
       .populate("classId", "className section");
 
     if (!student) {
@@ -272,7 +272,7 @@ exports.updateStudent = async (req, res) => {
 
     // Return updated student
     const updatedStudent = await Student.findById(id)
-      .populate("userId", "name email isActive -password")
+      .populate("userId", "name email isActive")
       .populate("classId", "className section");
 
     res.status(200).json({
@@ -330,7 +330,7 @@ exports.getMe = async (req, res) => {
   try {
     // req.user is set by protect middleware
     const student = await Student.findOne({ userId: req.user._id })
-      .populate("userId", "name email isActive -password")
+      .populate("userId", "name email isActive")
       .populate("classId", "className section");
 
     if (!student) {

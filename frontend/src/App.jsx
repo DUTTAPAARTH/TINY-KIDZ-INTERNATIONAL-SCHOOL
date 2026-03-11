@@ -7,14 +7,10 @@ import {
 import { useSelector } from "react-redux";
 import LoginPage from "./pages/LoginPage";
 import AdminDashboard from "./pages/admin/Dashboard";
-import AdminMarks from "./pages/admin/Marks";
 import AdminReports from "./pages/admin/Reports";
 import AdminStudents from "./pages/admin/Students";
 import AdminTeachers from "./pages/admin/Teachers";
 import AdminClasses from "./pages/admin/Classes";
-import AdminSubjects from "./pages/admin/Subjects";
-import AdminAttendance from "./pages/admin/Attendance";
-import AdminHomework from "./pages/admin/Homework";
 import AdminFees from "./pages/admin/Fees";
 import AdminNotices from "./pages/admin/Notices";
 import TeacherDashboard from "./pages/teacher/Dashboard";
@@ -63,33 +59,6 @@ function App() {
         />
 
         <Route
-          path="/admin/attendance"
-          element={
-            <PrivateRoute allowedRoles={["admin"]}>
-              <AdminAttendance />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/admin/homework"
-          element={
-            <PrivateRoute allowedRoles={["admin"]}>
-              <AdminHomework />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/admin/marks"
-          element={
-            <PrivateRoute allowedRoles={["admin"]}>
-              <AdminMarks />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
           path="/admin/students"
           element={
             <PrivateRoute allowedRoles={["admin"]}>
@@ -112,15 +81,6 @@ function App() {
           element={
             <PrivateRoute allowedRoles={["admin"]}>
               <AdminClasses />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/admin/subjects"
-          element={
-            <PrivateRoute allowedRoles={["admin"]}>
-              <AdminSubjects />
             </PrivateRoute>
           }
         />
