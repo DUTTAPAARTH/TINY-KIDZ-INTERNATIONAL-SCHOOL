@@ -1,17 +1,16 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { authAPI } from "../services/authService";
+import {
+  clearAuthSession,
+  getAuthToken,
+  getStoredAuthRole,
+  getStoredAuthUser,
+  setAuthRole,
+  setAuthToken,
+  setAuthUser,
+} from "../utils/authSession";
 
 const VALID_ROLES = ["admin", "teacher", "student"];
-
-const getStoredRole = () => {
-  const storedRole = localStorage.getItem("role");
-  if (VALID_ROLES.includes(storedRole)) {
-    return storedRole;
-  }
-
-  localStorage.removeItem("role");
-  return null;
-};
 
 // Async thunk for login
 export const loginUser = createAsyncThunk(
@@ -20,9 +19,7 @@ export const loginUser = createAsyncThunk(
     try {
       const response = await authAPI.login(email, password);
       const { token, user } = response.data;
-
-      // Save token to localStorage
-      localStorage.setItem("token", token);
+      setAuthToken(token);
 
       return {
         user,
@@ -36,9 +33,9 @@ export const loginUser = createAsyncThunk(
 );
 
 const initialState = {
-  user: null,
-  token: localStorage.getItem("token") || null,
-  role: getStoredRole(),
+  user: getStoredAuthUser(),
+  token: getAuthToken(),
+  role: getStoredAuthRole(),
   isLoading: false,
   error: null,
 };
@@ -54,8 +51,7 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
       state.role = null;
-      localStorage.removeItem("token");
-      localStorage.removeItem("role");
+      clearAuthSession();
     },
   },
   extraReducers: (builder) => {
@@ -69,15 +65,22 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.token = action.payload.token;
         state.role = action.payload.role;
-        if (VALID_ROLES.includes(action.payload.role)) {
-          localStorage.setItem("role", action.payload.role);
+        if (!VALID_ROLES.includes(action.payload.role)) {
+          state.role = null;
+          setAuthRole(null);
+          setAuthUser(null);
         } else {
-          localStorage.removeItem("role");
+          setAuthRole(action.payload.role);
+          setAuthUser(action.payload.user);
         }
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
+        clearAuthSession();
+        state.user = null;
+        state.token = null;
+        state.role = null;
       });
   },
 });

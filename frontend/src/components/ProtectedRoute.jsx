@@ -2,26 +2,30 @@ import React from "react";
 import { useSelector } from "react-redux";
 import { Navigate } from "react-router-dom";
 
-const PrivateRoute = ({ children, allowedRoles }) => {
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const { token, role } = useSelector((state) => state.auth);
 
-  // Missing token or role → redirect to login
-  if (!token || !role) {
-    return <Navigate to="/login" />;
+  if (!token) {
+    return <Navigate to="/login" replace />;
   }
 
-  // Token exists but role not in allowed roles → redirect to own dashboard
   if (allowedRoles && !allowedRoles.includes(role)) {
-    const dashboardPaths = {
-      admin: "/admin/dashboard",
-      teacher: "/teacher/dashboard",
-      student: "/student/dashboard",
-    };
-    return <Navigate to={dashboardPaths[role] || "/login"} />;
+    if (role === "admin") {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+
+    if (role === "teacher") {
+      return <Navigate to="/teacher/dashboard" replace />;
+    }
+
+    if (role === "student") {
+      return <Navigate to="/student/dashboard" replace />;
+    }
+
+    return <Navigate to="/login" replace />;
   }
 
-  // Token valid and role allowed → render the page
   return children;
 };
 
-export default PrivateRoute;
+export default ProtectedRoute;

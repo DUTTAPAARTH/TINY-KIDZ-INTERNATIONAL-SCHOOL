@@ -1,13 +1,20 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Container,
   Paper,
-  TextField,
   Button,
-  Grid,
-  Card,
-  CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Snackbar,
+  Alert,
+  Typography,
   Table,
   TableBody,
   TableCell,
@@ -17,367 +24,312 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
-  Snackbar,
-  Alert,
-  CircularProgress,
-  Typography,
-  Chip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from "@mui/material";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import API from "../../services/authService";
 import TeacherLayout from "../../components/TeacherLayout";
+import { useSelector } from "react-redux";
 
 const TeacherAttendance = () => {
+  const { token } = useSelector((state) => state.auth);
   const [classes, setClasses] = useState([]);
-  const [selectedClass, setSelectedClass] = useState("");
-  const [selectedDate, setSelectedDate] = useState(dayjs());
-  const [attendance, setAttendance] = useState({});
   const [students, setStudents] = useState([]);
-  const [alreadyMarked, setAlreadyMarked] = useState(false);
-  const [markedData, setMarkedData] = useState(null);
+  const [selectedClass, setSelectedClass] = useState("");
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [attendanceRecords, setAttendanceRecords] = useState({});
+  const [submittedToday, setSubmittedToday] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
 
-  // Fetch teachers's classes
+  const dateToday = dayjs().format("YYYY-MM-DD");
+
   useEffect(() => {
-    const fetchTeacherProfile = async () => {
+    const fetchClasses = async () => {
       try {
-        const response = await API.get("/api/teachers/me");
-        setClasses(response.data.data.classIds || []);
-        if (response.data.data.classIds?.length > 0) {
-          setSelectedClass(response.data.data.classIds[0]._id);
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await fetch("http://localhost:5000/api/teachers/me", { headers });
+        const data = await response.json();
+        const clsList = data.data?.assignedClasses || data.data?.classIds || [];
+        const formattedClasses = clsList.map((c) => ({ id: c._id || c.id, name: `${c.className || ''} ${c.section || ''}`.trim() || c.name }));
+        setClasses(formattedClasses);
+        if (formattedClasses.length > 0) {
+          setSelectedClass(formattedClasses[0].id || formattedClasses[0]._id);
         }
-      } catch (error) {
-        setSnackbar({
-          open: true,
-          message: "Failed to load classes",
-          severity: "error",
-        });
+      } catch (err) {
+        console.error("Error fetching classes:", err);
       }
     };
-    fetchTeacherProfile();
+
+    fetchClasses();
   }, []);
 
-  // Check if attendance already marked and fetch students
   useEffect(() => {
-    if (!selectedClass || !selectedDate) return;
+    if (!selectedClass) {
+      setStudents([]);
+      setAttendanceRecords({});
+      setSubmittedToday(false);
+      return;
+    }
 
-    const checkAttendance = async () => {
+    const fetchStudentsAndAttendance = async () => {
       setLoading(true);
       try {
-        const dateStr = selectedDate.format("YYYY-MM-DD");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        // Check if already marked
-        try {
-          const marked = await API.get(
-            `/api/attendance/class/${selectedClass}/date/${dateStr}`,
-          );
-          setAlreadyMarked(true);
-          setMarkedData(marked.data.data);
-          setStudents([]);
-        } catch (error) {
-          // Not marked yet, fetch all students
-          setAlreadyMarked(false);
-          setMarkedData(null);
+        const resStudents = await fetch(`http://localhost:5000/api/students?classId=${selectedClass}`, { headers });
+        const dataStudents = await resStudents.json();
+        const stdList = dataStudents.data || dataStudents;
+        setStudents(stdList);
 
-          const studentsRes = await API.get(
-            `/api/students?classId=${selectedClass}&limit=1000`,
-          );
-          setStudents(studentsRes.data.data || []);
-
-          // Initialize attendance with all Present
-          const initialAttendance = {};
-          (studentsRes.data.data || []).forEach((student) => {
-            initialAttendance[student._id] = "Present";
-          });
-          setAttendance(initialAttendance);
+        const resAttendance = await fetch(`http://localhost:5000/api/attendance/class/${selectedClass}/date/${dateToday}`, { headers });
+        
+        let initialRecords = {};
+        if (resAttendance.ok) {
+          const dataAttendance = await resAttendance.json();
+          if (dataAttendance.data && dataAttendance.data.records) {
+            setSubmittedToday(true);
+            dataAttendance.data.records.forEach((r) => {
+              // Ensure r.studentId is a string if populated or just an ID
+              const sid = typeof r.studentId === "object" ? r.studentId._id : r.studentId;
+              initialRecords[sid] = r.status;
+            });
+          }
+        } else {
+          setSubmittedToday(false);
         }
-      } catch (error) {
-        setSnackbar({
-          open: true,
-          message: "Error fetching data",
-          severity: "error",
-        });
+        setAttendanceRecords(initialRecords);
+
+      } catch (err) {
+        console.error("Error fetching data:", err);
       } finally {
         setLoading(false);
       }
     };
+    fetchStudentsAndAttendance();
+  }, [selectedClass]);
 
-    checkAttendance();
-  }, [selectedClass, selectedDate]);
+  const handleStatusChange = (studentId, status) => {
+    setAttendanceRecords((prev) => ({ ...prev, [studentId]: status }));
+  };
 
-  const handleAttendanceChange = (studentId, status) => {
-    setAttendance((prev) => ({
-      ...prev,
-      [studentId]: status,
-    }));
+  const handleMarkAll = (status) => {
+    const newRecords = {};
+    students.forEach((s) => {
+      newRecords[s._id] = status;
+    });
+    setAttendanceRecords(newRecords);
+  };
+
+  const handleReset = () => {
+    setAttendanceRecords({});
+  };
+
+  const handleOpenDialog = () => {
+    if (Object.keys(attendanceRecords).length !== students.length) {
+      setSnackbar({ open: true, message: "Please mark attendance for all students.", severity: "warning" });
+      return;
+    }
+    setDialogOpen(true);
   };
 
   const handleSubmit = async () => {
-    if (!selectedClass || !selectedDate) {
-      setSnackbar({
-        open: true,
-        message: "Please select class and date",
-        severity: "error",
-      });
-      return;
-    }
-
-    setSubmitting(true);
+    setLoading(true);
     try {
-      const dateStr = selectedDate.format("YYYY-MM-DD");
-      const records = Object.entries(attendance).map(([studentId, status]) => ({
+      const headers = { 
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+
+      const records = Object.keys(attendanceRecords).map((studentId) => ({
         studentId,
-        status,
+        status: attendanceRecords[studentId],
       }));
 
-      await API.post("/api/attendance", {
+      const payload = {
         classId: selectedClass,
-        date: dateStr,
+        date: dateToday,
         records,
+      };
+
+      const response = await fetch("http://localhost:5000/api/attendance", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
       });
 
-      setSnackbar({
-        open: true,
-        message: "✓ Attendance marked successfully",
-        severity: "success",
-      });
-
-      // Refresh to show marked state
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || "Failed to mark attendance",
-        severity: "error",
-      });
+      if (response.ok) {
+        setSnackbar({ open: true, message: "Attendance saved successfully!", severity: "success" });
+        setSubmittedToday(true);
+      } else {
+        const errorData = await response.json();
+        setSnackbar({ open: true, message: errorData.message || "Error saving attendance.", severity: "error" });
+      }
+    } catch (err) {
+      console.error(err);
+      setSnackbar({ open: true, message: "Failed to submit attendance.", severity: "error" });
     } finally {
-      setSubmitting(false);
+      setLoading(false);
+      setDialogOpen(false);
     }
+  };
+
+  const getStatusColor = (status) => {
+    if (status === "Present") return "success.main";
+    if (status === "Absent") return "error.main";
+    if (status === "Late") return "warning.main";
+    return "text.secondary";
   };
 
   return (
     <TeacherLayout>
-      <Container maxWidth="lg" sx={{ py: 3 }}>
-        <Typography
-          variant="h4"
-          sx={{ mb: 3, fontWeight: "bold", color: "#D32F2F" }}
-        >
-          Mark Attendance
-        </Typography>
+      <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#f6f9ff" }}>
+        <Container maxWidth="lg" sx={{ py: 3, flex: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, color: "#1a56db", mb: 2, fontFamily: 'Manrope, sans-serif' }}>
+            Daily Attendance
+          </Typography>
 
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Select Class</InputLabel>
-                <Select
-                  value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
-                  label="Select Class"
-                >
-                  {classes.map((cls) => (
-                    <MenuItem key={cls._id} value={cls._id}>
-                      {cls.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker
-                  label="Select Date"
-                  value={selectedDate}
-                  onChange={setSelectedDate}
-                  slotProps={{ textField: { fullWidth: true } }}
-                />
-              </LocalizationProvider>
-            </Grid>
-          </Grid>
-        </Paper>
-
-        {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : alreadyMarked ? (
-          <Box>
-            <Alert
-              icon={<CheckCircleIcon fontSize="inherit" />}
-              severity="success"
-              sx={{ mb: 3 }}
-            >
-              Attendance already marked for{" "}
-              <strong>{selectedDate.format("DD MMM YYYY")}</strong>
+          {submittedToday && selectedClass && (
+            <Alert severity="info" sx={{ mb: 3 }}>
+              Attendance for {dateToday} has already been submitted. You can edit it below if needed.
             </Alert>
+          )}
 
-            <TableContainer component={Paper}>
-              <Table size="small">
-                <TableHead sx={{ backgroundColor: "#D32F2F" }}>
-                  <TableRow>
-                    <TableCell sx={{ color: "white", fontWeight: "bold" }}>
-                      Admission No
-                    </TableCell>
-                    <TableCell sx={{ color: "white", fontWeight: "bold" }}>
-                      Student Name
-                    </TableCell>
-                    <TableCell sx={{ color: "white", fontWeight: "bold" }}>
-                      Status
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {markedData?.records?.map((record) => (
-                    <TableRow key={record._id}>
-                      <TableCell>
-                        {record.studentId?.admissionNumber || "N/A"}
-                      </TableCell>
-                      <TableCell>
-                        {record.studentId?.userId?.name || "N/A"}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={record.status}
-                          color={
-                            record.status === "Present"
-                              ? "success"
-                              : record.status === "Late"
-                                ? "warning"
-                                : "error"
-                          }
-                          size="small"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
-        ) : (
-          <Box>
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  Total Students: {students.length}
-                </Typography>
-              </CardContent>
-            </Card>
-
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead sx={{ backgroundColor: "#D32F2F" }}>
-                  <TableRow>
-                    <TableCell sx={{ color: "white", fontWeight: "bold" }}>
-                      Admission No
-                    </TableCell>
-                    <TableCell sx={{ color: "white", fontWeight: "bold" }}>
-                      Student Name
-                    </TableCell>
-                    <TableCell sx={{ color: "white", fontWeight: "bold" }}>
-                      Status
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {students.map((student) => (
-                    <TableRow key={student._id}>
-                      <TableCell>{student.admissionNumber}</TableCell>
-                      <TableCell>{student.userId?.name}</TableCell>
-                      <TableCell>
-                        <RadioGroup
-                          row
-                          value={attendance[student._id] || "Present"}
-                          onChange={(e) =>
-                            handleAttendanceChange(student._id, e.target.value)
-                          }
-                        >
-                          <FormControlLabel
-                            value="Present"
-                            control={<Radio />}
-                            label={
-                              <span style={{ color: "#4CAF50" }}>
-                                <strong>Present</strong>
-                              </span>
-                            }
-                          />
-                          <FormControlLabel
-                            value="Absent"
-                            control={<Radio />}
-                            label={
-                              <span style={{ color: "#D32F2F" }}>
-                                <strong>Absent</strong>
-                              </span>
-                            }
-                          />
-                          <FormControlLabel
-                            value="Late"
-                            control={<Radio />}
-                            label={
-                              <span style={{ color: "#FF9800" }}>
-                                <strong>Late</strong>
-                              </span>
-                            }
-                          />
-                        </RadioGroup>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
-              <Button
-                variant="contained"
-                sx={{
-                  backgroundColor: "#D32F2F",
-                  color: "white",
-                  px: 4,
-                  py: 1.5,
-                  fontSize: "1rem",
-                  "&:hover": { backgroundColor: "#B71C1C" },
-                }}
-                onClick={handleSubmit}
-                disabled={submitting}
-              >
-                {submitting ? "Submitting..." : "Submit Attendance"}
-              </Button>
+          <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+            <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mr: 2, alignSelf: 'center' }}>
+                Your Classes:
+              </Typography>
+              {classes.length === 0 ? (
+                <Typography color="text.secondary" sx={{ alignSelf: 'center' }}>No classes assigned.</Typography>
+              ) : (
+                classes.map((cls) => (
+                  <Button
+                    key={cls.id}
+                    variant={selectedClass === cls.id ? "contained" : "outlined"}
+                    onClick={() => setSelectedClass(cls.id)}
+                    sx={{ 
+                      borderRadius: 8, 
+                      textTransform: 'none', 
+                      bgcolor: selectedClass === cls.id ? "#1a56db" : "transparent",
+                      color: selectedClass === cls.id ? "white" : "#1a56db",
+                      borderColor: "#1a56db"
+                    }}
+                  >
+                    {cls.name}
+                  </Button>
+                ))
+              )}
             </Box>
-          </Box>
-        )}
 
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-        >
-          <Alert
-            onClose={() => setSnackbar({ ...snackbar, open: false })}
-            severity={snackbar.severity}
-            sx={{ width: "100%" }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Container>
+            {selectedClass && students.length > 0 && (
+              <>
+                <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
+                  <Button variant="outlined" onClick={() => handleMarkAll("Present")} sx={{ borderColor: "#1a56db", color: "#1a56db" }}>
+                    Mark All Present
+                  </Button>
+                  <Button variant="text" onClick={handleReset} sx={{ color: "#737686" }}>
+                    Reset
+                  </Button>
+                </Box>
+
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell><strong>Roll No</strong></TableCell>
+                        <TableCell><strong>Name</strong></TableCell>
+                        <TableCell><strong>Status</strong></TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {students.map((student) => {
+                        const status = attendanceRecords[student._id] || "";
+                        return (
+                          <TableRow key={student._id}>
+                            <TableCell>{student.admissionNo}</TableCell>
+                            <TableCell>{student.firstName} {student.lastName}</TableCell>
+                            <TableCell>
+                              <RadioGroup
+                                row
+                                value={status}
+                                onChange={(e) => handleStatusChange(student._id, e.target.value)}
+                              >
+                                <FormControlLabel 
+                                  value="Present" 
+                                  control={<Radio sx={{ '&.Mui-checked': { color: 'success.main' } }} />} 
+                                  label={<Typography sx={{ color: status === 'Present' ? 'success.main' : 'inherit' }}>Present</Typography>} 
+                                />
+                                <FormControlLabel 
+                                  value="Absent" 
+                                  control={<Radio sx={{ '&.Mui-checked': { color: 'error.main' } }} />} 
+                                  label={<Typography sx={{ color: status === 'Absent' ? 'error.main' : 'inherit' }}>Absent</Typography>} 
+                                />
+                                <FormControlLabel 
+                                  value="Late" 
+                                  control={<Radio sx={{ '&.Mui-checked': { color: 'warning.main' } }} />} 
+                                  label={<Typography sx={{ color: status === 'Late' ? 'warning.main' : 'inherit' }}>Late</Typography>} 
+                                />
+                              </RadioGroup>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+
+                <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
+                  <Button
+                    variant="contained"
+                    onClick={handleOpenDialog}
+                    disabled={loading}
+                    sx={{ bgcolor: "#003fb1", color: "white", px: 4, py: 1.5, borderRadius: 2 }}
+                  >
+                    Submit Attendance
+                  </Button>
+                </Box>
+              </>
+            )}
+            
+            {selectedClass && students.length === 0 && !loading && (
+              <Typography sx={{ mt: 2 }}>No students found in this class.</Typography>
+            )}
+          </Paper>
+
+          {/* Confirm Dialog */}
+          <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+            <DialogTitle sx={{ fontWeight: 'bold' }}>Confirm Submission</DialogTitle>
+            <DialogContent>
+              <Typography sx={{ mb: 2 }}>
+                You are about to submit attendance for <strong>{classes.find(c => c.id === selectedClass)?.name}</strong> on <strong>{dateToday}</strong>.
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Paper sx={{ p: 2, bgcolor: 'success.light', color: 'success.dark', flex: 1, textAlign: 'center' }}>
+                  <Typography variant="h6">{Object.values(attendanceRecords).filter(s => s === "Present").length}</Typography>
+                  <Typography>Present</Typography>
+                </Paper>
+                <Paper sx={{ p: 2, bgcolor: 'error.light', color: 'error.dark', flex: 1, textAlign: 'center' }}>
+                  <Typography variant="h6">{Object.values(attendanceRecords).filter(s => s === "Absent").length}</Typography>
+                  <Typography>Absent</Typography>
+                </Paper>
+                <Paper sx={{ p: 2, bgcolor: 'warning.light', color: 'warning.dark', flex: 1, textAlign: 'center' }}>
+                  <Typography variant="h6">{Object.values(attendanceRecords).filter(s => s === "Late").length}</Typography>
+                  <Typography>Late</Typography>
+                </Paper>
+              </Box>
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+              <Button onClick={() => setDialogOpen(false)} sx={{ color: "#737686" }}>Cancel</Button>
+              <Button onClick={handleSubmit} variant="contained" sx={{ bgcolor: "#003fb1", color: "white" }} disabled={loading}>
+                {loading ? "Saving..." : "Confirm & Save"}
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: "bottom", horizontal: "left" }}>
+            <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+          </Snackbar>
+        </Container>
+      </Box>
     </TeacherLayout>
   );
 };

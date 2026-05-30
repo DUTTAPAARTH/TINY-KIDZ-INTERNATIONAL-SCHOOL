@@ -5,6 +5,10 @@ import App from "./App.jsx";
 import store from "./redux/store.js";
 import "./style.css";
 
+localStorage.removeItem("token");
+localStorage.removeItem("user");
+localStorage.removeItem("role");
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <Provider store={store}>

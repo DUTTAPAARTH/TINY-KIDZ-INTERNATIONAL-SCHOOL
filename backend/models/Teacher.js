@@ -24,6 +24,11 @@ const teacherSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    designation: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     classIds: [
       {
         type: mongoose.Schema.Types.ObjectId,

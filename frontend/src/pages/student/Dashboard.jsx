@@ -32,6 +32,7 @@ import { logout } from "../../redux/authSlice";
 import Navbar from "../../components/Navbar";
 import Sidebar from "../../components/Sidebar";
 import axios from "axios";
+import { getAuthHeaders } from "../../utils/authSession";
 
 const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, path: "/student/dashboard" },
@@ -108,9 +109,7 @@ const StudentDashboard = () => {
         const noticesResponse = await axios.get(
           "http://localhost:5000/api/notices",
           {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
+            headers: getAuthHeaders(),
           },
         );
         const notices = noticesResponse.data.data || [];
@@ -149,9 +148,7 @@ const StudentDashboard = () => {
         const studentResponse = await axios.get(
           "http://localhost:5000/api/students/me",
           {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
+            headers: getAuthHeaders(),
           },
         );
         const studentId = studentResponse.data._id;
@@ -159,9 +156,7 @@ const StudentDashboard = () => {
         const feesResponse = await axios.get(
           `http://localhost:5000/api/fees/student/${studentId}`,
           {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
+            headers: getAuthHeaders(),
           },
         );
 

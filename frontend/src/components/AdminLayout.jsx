@@ -53,10 +53,9 @@ const AdminLayout = ({ children }) => {
         component="main"
         sx={{
           flexGrow: 1,
+          minWidth: 0,
           p: 3,
-          ml: "240px",
-          width: "calc(100% - 240px)",
-          mt: "64px",
+          mt: 8,
           overflow: "auto",
         }}
       >

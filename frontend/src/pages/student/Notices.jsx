@@ -20,6 +20,7 @@ import Sidebar from "../../components/Sidebar";
 import { logout } from "../../redux/authSlice";
 import { useDispatch } from "react-redux";
 import axios from "axios";
+import { getAuthHeaders } from "../../utils/authSession";
 
 const menuItems = [
   {
@@ -47,9 +48,7 @@ const StudentNotices = () => {
     try {
       setLoading(true);
       const response = await axios.get("http://localhost:5000/api/notices", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+        headers: getAuthHeaders(),
       });
       setNotices(response.data.data || []);
     } catch (error) {
@@ -294,6 +293,7 @@ const StudentNotices = () => {
                       {notice.content.length > 100 && (
                         <Button
                           size="small"
+                          data-testid={`read-more-${index}`}
                           onClick={() =>
                             setExpandedIndex(
                               expandedIndex === index ? null : index,

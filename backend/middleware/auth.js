@@ -22,7 +22,8 @@ const protect = async (req, res, next) => {
   try {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    // JWT was signed with { id: user._id }, normalize so req.user._id always works
+    req.user = { ...decoded, _id: decoded.id || decoded._id };
     next();
   } catch (error) {
     return res.status(401).json({ message: "Invalid token or token expired" });

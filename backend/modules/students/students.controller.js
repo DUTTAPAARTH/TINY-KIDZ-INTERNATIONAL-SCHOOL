@@ -1,7 +1,7 @@
+const mongoose = require("mongoose");
 const Student = require("../../models/Student");
 const User = require("../../models/User");
 const bcrypt = require("bcryptjs");
-const mongoose = require("mongoose");
 
 // GET /api/students - Get all students (Admin only, paginated, searchable)
 exports.getAllStudents = async (req, res) => {
@@ -16,9 +16,17 @@ exports.getAllStudents = async (req, res) => {
     // Build search query
     const query = {};
 
-    // Add search filter
+    // Add search filter — search by admissionNumber OR by the linked user's name
     if (search) {
-      query.$or = [{ admissionNumber: { $regex: search, $options: "i" } }];
+      const matchingUsers = await User.find(
+        { name: { $regex: search, $options: "i" }, role: "student" },
+        { _id: 1 },
+      ).lean();
+      const userIdMatches = matchingUsers.map((u) => u._id);
+      query.$or = [
+        { admissionNumber: { $regex: search, $options: "i" } },
+        { userId: { $in: userIdMatches } },
+      ];
     }
 
     // Add class filter
@@ -42,7 +50,7 @@ exports.getAllStudents = async (req, res) => {
     const students = await Student.find(query)
       .populate({
         path: "userId",
-        select: "name email",
+        select: "name email isActive",
         model: "User",
       })
       .populate("classId", "className section")
@@ -147,6 +155,11 @@ exports.createStudent = async (req, res) => {
     });
 
     await newStudent.save();
+
+    // Sync with Class model
+    await mongoose.model("Class").findByIdAndUpdate(classId, {
+      $addToSet: { students: newStudent._id }
+    });
 
     // Populate and return
     const populatedStudent = await Student.findById(newStudent._id)
@@ -269,7 +282,22 @@ exports.updateStudent = async (req, res) => {
     if (extracurricular !== undefined)
       student.extracurricular = extracurricular;
     if (academicYear) student.academicYear = academicYear;
-    if (classId) student.classId = classId;
+    const oldClassId = student.classId;
+    if (classId) {
+      student.classId = classId;
+      
+      // Sync with Class model
+      if (oldClassId && oldClassId.toString() !== classId.toString()) {
+        // Remove from old class
+        await mongoose.model("Class").findByIdAndUpdate(oldClassId, {
+          $pull: { students: id }
+        });
+        // Add to new class
+        await mongoose.model("Class").findByIdAndUpdate(classId, {
+          $addToSet: { students: id }
+        });
+      }
+    }
     if (isActive !== undefined) student.isActive = isActive;
 
     await student.save();
@@ -311,6 +339,13 @@ exports.deleteStudent = async (req, res) => {
 
     // Delete Student document
     await Student.findByIdAndDelete(id);
+
+    // Sync with Class model: Remove student from their class
+    if (student.classId) {
+      await mongoose.model("Class").findByIdAndUpdate(student.classId, {
+        $pull: { students: id }
+      });
+    }
 
     // Delete User document
     await User.findByIdAndDelete(userId);

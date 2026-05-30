@@ -384,12 +384,18 @@ const getReceipt = async (req, res) => {
 const getStudentReceipts = async (req, res) => {
   try {
     const { studentId } = req.params;
+    const { feeRecordId } = req.query;
 
     if (!(await canAccessStudent(req, studentId))) {
       return res.status(403).json({ message: "You can only view your own receipts" });
     }
 
-    const payments = await Payment.find({ studentId })
+    const filter = { studentId };
+    if (feeRecordId) {
+      filter.feeRecordId = feeRecordId;
+    }
+
+    const payments = await Payment.find(filter)
       .populate("feeRecordId", "feeType quarter description totalAmount paidAmount status")
       .populate({
         path: "studentId",
@@ -398,7 +404,9 @@ const getStudentReceipts = async (req, res) => {
       })
       .populate("classId", "className section")
       .populate("recordedBy", "name email role")
-      .sort({ paymentDate: -1 });
+      .sort({ paymentDate: -1 })
+      .lean()
+      .maxTimeMS(10000);
 
     return res.json(payments);
   } catch (error) {

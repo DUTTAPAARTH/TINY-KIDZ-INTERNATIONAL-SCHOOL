@@ -51,12 +51,12 @@ const StudentAttendance = () => {
       setLoading(true);
       try {
         // Get student's own profile
-        const studentRes = await API.get("/api/students/me");
+        const studentRes = await API.get("/students/me");
         setStudentInfo(studentRes.data.data);
 
         // Get student's attendance records
         const attendanceRes = await API.get(
-          `/api/attendance/student/${studentRes.data.data._id}`,
+          `/attendance/student/${studentRes.data.data._id}`,
         );
 
         const records = attendanceRes.data.data.records || [];
@@ -154,6 +154,7 @@ const StudentAttendance = () => {
               <FormControl sx={{ minWidth: 200 }}>
                 <InputLabel>Select Month</InputLabel>
                 <Select
+                  data-testid="select-month"
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
                   label="Select Month"
@@ -336,9 +337,9 @@ const StudentAttendance = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {attendanceRecords.length > 0 ? (
+                    {attendanceRecords.length > 0 ? (
                     attendanceRecords.map((record) => (
-                      <TableRow key={record._id} hover>
+                      <TableRow key={record._id} hover data-testid={`att-row-${record._id}`}>
                         <TableCell>
                           {dayjs(record.date).format("DD MMM YYYY (dddd)")}
                         </TableCell>

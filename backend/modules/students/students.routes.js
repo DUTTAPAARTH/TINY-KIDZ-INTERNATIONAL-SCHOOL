@@ -8,8 +8,13 @@ const authorize = require("../../middleware/role");
 // This must come BEFORE /:id route to avoid conflicts
 router.get("/me", protect, authorize("student"), studentsController.getMe);
 
-// GET /api/students - Get all students (Admin only, paginated, searchable)
-router.get("/", protect, authorize("admin"), studentsController.getAllStudents);
+// GET /api/students - Get all students (Admin + Teacher, paginated, searchable)
+router.get(
+  "/",
+  protect,
+  authorize("admin", "teacher"),
+  studentsController.getAllStudents,
+);
 
 // POST /api/students - Create student with User account (Admin only)
 router.post("/", protect, authorize("admin"), studentsController.createStudent);

@@ -103,6 +103,8 @@ const AdminFees = () => {
   const [yearFilter, setYearFilter] = useState("2024-25");
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
+  const [studentsLoaded, setStudentsLoaded] = useState(false);
+  const [loadingStudents, setLoadingStudents] = useState(false);
 
   const [structures, setStructures] = useState([]);
   const [loadingStructures, setLoadingStructures] = useState(false);
@@ -190,12 +192,16 @@ const AdminFees = () => {
 
   const [records, setRecords] = useState([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
+  const [recordPage, setRecordPage] = useState(0);
+  const [recordPageSize, setRecordPageSize] = useState(10);
+  const [recordRowCount, setRecordRowCount] = useState(0);
   const [recordClassFilter, setRecordClassFilter] = useState("");
   const [recordAcademicYearFilter, setRecordAcademicYearFilter] = useState("2024-25");
   const [recordQuarterFilter, setRecordQuarterFilter] = useState("All");
   const [recordStatusFilter, setRecordStatusFilter] = useState("All");
   const [recordFeeTypeFilter, setRecordFeeTypeFilter] = useState("All");
   const [recordSearchFilter, setRecordSearchFilter] = useState("");
+  const [debouncedRecordSearch, setDebouncedRecordSearch] = useState("");
 
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
 
@@ -219,12 +225,17 @@ const AdminFees = () => {
   };
 
   const fetchStudents = async () => {
+    if (studentsLoaded) return;
     try {
-      const res = await API.get("/students", { params: { limit: 2000 } });
+      setLoadingStudents(true);
+      const res = await API.get("/students", { params: { limit: 500 } });
       const list = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
       setStudents(list);
+      setStudentsLoaded(true);
     } catch {
       showSnackbar("Failed to fetch students", "error");
+    } finally {
+      setLoadingStudents(false);
     }
   };
 
@@ -243,6 +254,7 @@ const AdminFees = () => {
   const fetchRecords = async () => {
     if (!recordClassFilter) {
       setRecords([]);
+      setRecordRowCount(0);
       setLoadingRecords(false);
       return;
     }
@@ -254,12 +266,20 @@ const AdminFees = () => {
       if (recordQuarterFilter !== "All") params.quarter = recordQuarterFilter;
       if (recordStatusFilter !== "All") params.status = recordStatusFilter;
       if (recordFeeTypeFilter !== "All") params.feeType = recordFeeTypeFilter;
-      if (recordSearchFilter.trim()) params.search = recordSearchFilter.trim();
+      if (debouncedRecordSearch.trim()) params.search = debouncedRecordSearch.trim();
+      params.page = recordPage + 1;
+      params.limit = recordPageSize;
 
       const endpoint =
         recordClassFilter === "all" ? "/fees" : `/fees/class/${recordClassFilter}`;
       const res = await API.get(endpoint, { params });
-      setRecords(Array.isArray(res.data) ? res.data : []);
+      const list = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
+      setRecords(list);
+      setRecordRowCount(Number(res.data?.pagination?.total || list.length || 0));
     } catch {
       showSnackbar("Failed to fetch fee records", "error");
     } finally {
@@ -318,10 +338,10 @@ const AdminFees = () => {
     setPaymentHistoryOpen(true);
     try {
       setHistoryLoading(true);
-      const res = await API.get(`/fees/receipt/student/${record.studentId?._id}`);
-      const rows = (Array.isArray(res.data) ? res.data : []).filter(
-        (p) => String(p.feeRecordId?._id || p.feeRecordId) === String(record._id),
-      );
+      const res = await API.get(`/fees/receipt/student/${record.studentId?._id}`, {
+        params: { feeRecordId: record._id },
+      });
+      const rows = Array.isArray(res.data) ? res.data : [];
       setHistoryRows(rows);
     } catch {
       showSnackbar("Failed to fetch payment history", "error");
@@ -405,10 +425,28 @@ const AdminFees = () => {
 
   useEffect(() => {
     fetchClasses();
-    fetchStudents();
     fetchStructures();
     fetchTodayCollection();
   }, []);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedRecordSearch(recordSearchFilter);
+    }, 350);
+
+    return () => clearTimeout(handle);
+  }, [recordSearchFilter]);
+
+  useEffect(() => {
+    setRecordPage(0);
+  }, [
+    recordClassFilter,
+    recordAcademicYearFilter,
+    recordQuarterFilter,
+    recordStatusFilter,
+    recordFeeTypeFilter,
+    debouncedRecordSearch,
+  ]);
 
   useEffect(() => {
     if (currentTab === 2) fetchRecords();
@@ -419,7 +457,9 @@ const AdminFees = () => {
     recordQuarterFilter,
     recordStatusFilter,
     recordFeeTypeFilter,
-    recordSearchFilter,
+    debouncedRecordSearch,
+    recordPage,
+    recordPageSize,
   ]);
 
   useEffect(() => {
@@ -587,6 +627,11 @@ const AdminFees = () => {
     }
   };
 
+  const openStudentGenerateDialog = async () => {
+    await fetchStudents();
+    setStudentDialogOpen(true);
+  };
+
   const runOverdueUpdate = async () => {
     try {
       const res = await API.put("/fees/update-overdue");
@@ -597,22 +642,26 @@ const AdminFees = () => {
     }
   };
 
-  const rows = records.map((r) => {
-    const studentName = r.studentId?.userId?.name || "N/A";
-    const admissionNo = r.studentId?.admissionNumber || "-";
-    const classLabel = getClassLabel(r.classId);
-    const dueAmount = Number(r.totalAmount || 0) - Number(r.paidAmount || 0);
+  const rows = useMemo(
+    () =>
+      records.map((r) => {
+        const studentName = r.studentId?.userId?.name || "N/A";
+        const admissionNo = r.studentId?.admissionNumber || "-";
+        const classLabel = getClassLabel(r.classId);
+        const dueAmount = Number(r.totalAmount || 0) - Number(r.paidAmount || 0);
 
-    return {
-      ...r,
-      id: r._id,
-      studentName,
-      admissionNo,
-      classLabel,
-      dueAmount,
-      dueDateView: r.dueDate ? String(r.dueDate).slice(0, 10) : "-",
-    };
-  });
+        return {
+          ...r,
+          id: r._id,
+          studentName,
+          admissionNo,
+          classLabel,
+          dueAmount,
+          dueDateView: r.dueDate ? String(r.dueDate).slice(0, 10) : "-",
+        };
+      }),
+    [records],
+  );
 
   const selectedDue = Math.max(
     0,
@@ -635,19 +684,19 @@ const AdminFees = () => {
       field: "totalAmount",
       headerName: "Total ₹",
       width: 100,
-      valueFormatter: (params) => formatCurrency(params.value),
+      valueFormatter: (value) => formatCurrency(value),
     },
     {
       field: "paidAmount",
       headerName: "Paid ₹",
       width: 100,
-      valueFormatter: (params) => formatCurrency(params.value),
+      valueFormatter: (value) => formatCurrency(value),
     },
     {
       field: "dueAmount",
       headerName: "Due ₹",
       width: 100,
-      valueFormatter: (params) => formatCurrency(params.value),
+      valueFormatter: (value) => formatCurrency(value),
     },
     { field: "status", headerName: "Status", width: 110 },
     { field: "dueDateView", headerName: "Due Date", width: 110 },
@@ -658,13 +707,13 @@ const AdminFees = () => {
       sortable: false,
       filterable: false,
       renderCell: (params) => (
-        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", py: 0.5 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, py: 0.75, width: "100%" }}>
           <Button
             size="small"
             variant="outlined"
             color="error"
             onClick={() => openDemandSlip(params.row.studentId?._id)}
-            sx={{ textTransform: "none", minWidth: 100, px: 1 }}
+            sx={{ textTransform: "none", width: "100%" }}
           >
             Demand Slip
           </Button>
@@ -673,7 +722,7 @@ const AdminFees = () => {
               size="small"
               variant="contained"
               onClick={() => openCollectPayment(params.row)}
-              sx={{ bgcolor: "#D32F2F", "&:hover": { bgcolor: "#B71C1C" }, textTransform: "none", minWidth: 100, px: 1 }}
+              sx={{ bgcolor: "#D32F2F", "&:hover": { bgcolor: "#B71C1C" }, textTransform: "none", width: "100%" }}
             >
               Collect Payment
             </Button>
@@ -681,7 +730,7 @@ const AdminFees = () => {
             <Chip
               label="✓ PAID"
               size="small"
-              sx={{ bgcolor: "#E8F5E9", color: "#2E7D32", fontWeight: "bold" }}
+              sx={{ bgcolor: "#E8F5E9", color: "#2E7D32", fontWeight: "bold", width: "100%" }}
             />
           )}
           <Button
@@ -689,7 +738,7 @@ const AdminFees = () => {
             variant="outlined"
             color="error"
             onClick={() => openPaymentHistory(params.row)}
-            sx={{ textTransform: "none", minWidth: 100, px: 1 }}
+            sx={{ textTransform: "none", width: "100%" }}
           >
             View Ledger
           </Button>
@@ -715,7 +764,7 @@ const AdminFees = () => {
       field: "totalDue",
       headerName: "Total Due",
       minWidth: 130,
-      valueFormatter: (params) => formatCurrency(params.value),
+      valueFormatter: (value) => formatCurrency(value),
     },
     {
       field: "lastPaymentDate",
@@ -913,7 +962,7 @@ const AdminFees = () => {
                   <CardContent>
                     <Typography variant="h6" sx={{ mb: 1 }}>Generate for One Student</Typography>
                     <Typography color="text.secondary" sx={{ mb: 2 }}>Create custom fee record manually.</Typography>
-                    <Button variant="contained" endIcon={<ArrowForwardRoundedIcon />} onClick={() => setStudentDialogOpen(true)} sx={openActionButtonSx}>
+                    <Button variant="contained" endIcon={<ArrowForwardRoundedIcon />} onClick={openStudentGenerateDialog} sx={openActionButtonSx}>
                       Configure
                     </Button>
                   </CardContent>
@@ -1014,10 +1063,17 @@ const AdminFees = () => {
                   rows={rows}
                   columns={recordColumns}
                   getRowId={(row) => row._id}
+                  rowHeight={112}
                   loading={loadingRecords}
                   disableRowSelectionOnClick
                   pageSizeOptions={[10, 20, 50]}
-                  initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
+                  paginationMode="server"
+                  rowCount={recordRowCount}
+                  paginationModel={{ page: recordPage, pageSize: recordPageSize }}
+                  onPaginationModelChange={(model) => {
+                    setRecordPage(model.page);
+                    setRecordPageSize(model.pageSize);
+                  }}
                 />
               </Box>
             )}
@@ -1340,6 +1396,7 @@ const AdminFees = () => {
           <DialogTitle>Generate Fee for One Student</DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+              {loadingStudents && <Typography variant="body2">Loading students...</Typography>}
               <Autocomplete
                 options={students}
                 value={students.find((s) => s._id === studentGenerateForm.studentId) || null}

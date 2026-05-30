@@ -14,6 +14,7 @@ const {
   generateFeeForStudent,
   getStudentFeeRecords,
   getClassFeeRecords,
+  getFeeDebugSummary,
   updateOverdueStatus,
   cleanupZeroRecords,
   fixStatuses,
@@ -56,6 +57,7 @@ router.post("/generate/school", authorize("admin"), generateFeesForSchool);
 router.post("/generate/range", authorize("admin"), generateFeesForClassRange);
 router.post("/generate/student", authorize("admin"), generateFeeForStudent);
 router.get("/", authorize("admin"), getClassFeeRecords);
+router.get("/debug-summary", authorize("admin"), getFeeDebugSummary);
 router.get("/class/:classId", authorize("admin"), getClassFeeRecords);
 router.get("/defaulters", authorize("admin"), getDefaultersFull);
 router.put("/update-overdue", authorize("admin"), updateOverdueStatus);
@@ -64,6 +66,7 @@ router.delete("/cleanup-zero-records", authorize("admin"), cleanupZeroRecords);
 router.get("/fix-statuses", authorize("admin"), fixStatuses);
 
 // Phase 5 - Reports and Analytics (Admin)
+router.get("/summary", authorize("admin"), getFeeSummary);
 router.get("/reports/summary", authorize("admin"), getFeeSummary);
 router.get("/reports/class-wise", authorize("admin"), getClassWiseReport);
 router.get("/reports/quarter-wise", authorize("admin"), getQuarterWiseReport);

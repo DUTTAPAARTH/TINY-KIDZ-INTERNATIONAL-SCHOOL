@@ -1,533 +1,320 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import {
-  Box,
-  Container,
-  Paper,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Snackbar,
-  Alert,
-  CircularProgress,
-  Typography,
-  Chip,
-  FormControlLabel,
-  Checkbox,
+  Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, Snackbar, Alert, Typography, Grid, Paper, InputLabel, FormControl, CircularProgress, IconButton
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import dayjs from "dayjs";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import API from "../../services/authService";
+import dayjs from "dayjs";
+
+const SUBJECTS = [
+  "English", "Hindi", "Math", "Science", "Social Studies", "Computer", "Punjabi", "Art", "PE"
+];
+const STATUS_OPTIONS = ["All", "Upcoming", "Due Today", "Overdue"];
+
 import TeacherLayout from "../../components/TeacherLayout";
+import { useSelector } from "react-redux";
+
+function getStatusColor(daysLeft) {
+  if (daysLeft < 0) return "#C62828"; // Overdue
+  if (daysLeft === 0) return "#1976D2"; // Due today
+  if (daysLeft <= 2) return "#FFA000"; // Due soon
+  return "#388E3C"; // Upcoming
+}
+
+function getDueLabel(daysLeft) {
+  if (daysLeft < 0) return `${-daysLeft} days overdue`;
+  if (daysLeft === 0) return "Due today";
+  if (daysLeft === 1) return "Due tomorrow";
+  if (daysLeft <= 2) return `${daysLeft} days left`;
+  return `${daysLeft} days left`;
+}
 
 const TeacherHomework = () => {
+  const { token } = useSelector((state) => state.auth);
+  
+  const api = axios.create({ 
+    baseURL: "http://localhost:5000/api",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  // --- State ---
   const [classes, setClasses] = useState([]);
-  const [subjects, setSubjects] = useState([]);
-  const [homework, setHomework] = useState([]);
   const [selectedClass, setSelectedClass] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [search, setSearch] = useState("");
+  const [homework, setHomework] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
-  const [formData, setFormData] = useState({
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({
     classId: "",
-    subjectId: "",
+    subject: "",
     title: "",
     description: "",
-    dueDate: dayjs(),
-    attachmentLink: "",
+    dueDate: dayjs().add(1, 'day').format('YYYY-MM-DD'),
+    attachmentLink: ""
   });
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [stats, setStats] = useState({ total: 0, dueToday: 0, overdue: 0, upcoming: 0 });
 
-  // Fetch teacher's classes and subjects
+  // --- Fetch Classes ---
   useEffect(() => {
-    const fetchTeacherProfile = async () => {
-      try {
-        const response = await API.get("/api/teachers/me");
-        const teacherClasses = response.data.data.classIds || [];
-        setClasses(teacherClasses);
-        if (teacherClasses.length > 0) {
-          setSelectedClass(teacherClasses[0]._id);
-          setFormData((prev) => ({ ...prev, classId: teacherClasses[0]._id }));
-        }
-      } catch (error) {
-        setSnackbar({
-          open: true,
-          message: "Failed to load classes",
-          severity: "error",
-        });
+    api.get("/teachers/me").then(res => {
+      const clsList = res.data?.data?.assignedClasses || res.data?.data?.classIds || [];
+      const formattedClasses = clsList.map(c => ({ _id: c._id || c.id, name: `${c.className || ''} ${c.section || ''}`.trim() || c.name }));
+      setClasses(formattedClasses);
+      if (formattedClasses.length > 0) {
+        setSelectedClass(formattedClasses[0]._id || formattedClasses[0].id);
       }
-    };
-    fetchTeacherProfile();
+    });
   }, []);
 
-  // Fetch subjects based on selected class
+
+  // --- Fetch Homework ---
   useEffect(() => {
-    if (!selectedClass) return;
-    const fetchSubjects = async () => {
-      try {
-        const response = await API.get("/api/subjects");
-        const classSubjects = (response.data.data || []).filter(
-          (s) => s.classId?.toString() === selectedClass,
-        );
-        setSubjects(classSubjects);
-      } catch (error) {
-        setSnackbar({
-          open: true,
-          message: "Failed to load subjects",
-          severity: "error",
-        });
-      }
-    };
-    fetchSubjects();
+    setLoading(true);
+    let url = `/homework?assignedBy=me`;
+    if (selectedClass) url += `&classId=${selectedClass}`;
+    api.get(url).then(res => {
+      const hwData = res.data?.data || res.data || [];
+      setHomework(Array.isArray(hwData) ? hwData : []);
+      setLoading(false);
+    });
   }, [selectedClass]);
 
-  // Fetch homework for selected class
+  // --- Stats Calculation ---
   useEffect(() => {
-    if (!selectedClass) return;
-    const fetchHomework = async () => {
-      setLoading(true);
-      try {
-        const response = await API.get(`/api/homework/class/${selectedClass}`);
-        const data = response.data.data || [];
-        setHomework(
-          data.map((hw, idx) => ({
-            id: hw._id,
-            ...hw,
-            index: idx,
-          })),
-        );
-      } catch (error) {
-        setSnackbar({
-          open: true,
-          message: "Failed to load homework",
-          severity: "error",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchHomework();
-  }, [selectedClass]);
+    let total = homework.length;
+    let dueToday = 0, overdue = 0, upcoming = 0;
+    const today = dayjs().startOf('day');
+    homework.forEach(hw => {
+      const due = dayjs(hw.dueDate).startOf('day');
+      const diff = due.diff(today, 'day');
+      if (diff < 0) overdue++;
+      else if (diff === 0) dueToday++;
+      else upcoming++;
+    });
+    setStats({ total, dueToday, overdue, upcoming });
+  }, [homework]);
 
-  const getStatus = (dueDate) => {
-    const due = dayjs(dueDate);
-    const today = dayjs().startOf("day");
-    if (due.isBefore(today)) return "Overdue";
-    return "Upcoming";
-  };
+  // --- Filtered Homework ---
+  const filteredHomework = homework.filter(hw => {
+    const due = dayjs(hw.dueDate).startOf('day');
+    const today = dayjs().startOf('day');
+    const daysLeft = due.diff(today, 'day');
+    let statusMatch =
+      statusFilter === "All" ||
+      (statusFilter === "Upcoming" && daysLeft > 0) ||
+      (statusFilter === "Due Today" && daysLeft === 0) ||
+      (statusFilter === "Overdue" && daysLeft < 0);
+    let searchMatch = hw.title.toLowerCase().includes(search.toLowerCase());
+    return statusMatch && searchMatch;
+  });
 
-  const handleOpenDialog = (hw = null) => {
+  // --- Handlers ---
+  const openDialog = (hw = null) => {
     if (hw) {
-      setEditingId(hw._id);
-      setFormData({
-        classId: hw.classId._id,
-        subjectId: hw.subjectId._id,
+      setEditId(hw._id);
+      setForm({
+        classId: hw.classId,
+        subject: hw.subject,
         title: hw.title,
         description: hw.description,
-        dueDate: dayjs(hw.dueDate),
-        attachmentLink: hw.attachmentLink || "",
+        dueDate: dayjs(hw.dueDate).format('YYYY-MM-DD'),
+        attachmentLink: hw.attachmentLink || ""
       });
     } else {
-      setEditingId(null);
-      setFormData({
-        classId: selectedClass || "",
-        subjectId: "",
+      setEditId(null);
+      setForm({
+        classId: "",
+        subject: "",
         title: "",
         description: "",
-        dueDate: dayjs(),
-        attachmentLink: "",
+        dueDate: dayjs().add(1, 'day').format('YYYY-MM-DD'),
+        attachmentLink: ""
       });
     }
     setDialogOpen(true);
   };
 
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setEditingId(null);
+  const closeDialog = () => setDialogOpen(false);
+
+  const handleFormChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleSave = async () => {
-    if (
-      !formData.classId ||
-      !formData.subjectId ||
-      !formData.title ||
-      !formData.description ||
-      !formData.dueDate
-    ) {
-      setSnackbar({
-        open: true,
-        message: "Please fill all required fields",
-        severity: "error",
-      });
+    // Validation
+    if (!form.classId || !form.subject || !form.title || !form.dueDate) {
+      setSnackbar({ open: true, message: "Please fill all required fields", severity: "error" });
       return;
     }
-
-    // Validate due date is today or future
-    if (formData.dueDate.isBefore(dayjs().startOf("day"))) {
-      setSnackbar({
-        open: true,
-        message: "Due date must be today or in the future",
-        severity: "error",
-      });
+    if (form.title.length > 100) {
+      setSnackbar({ open: true, message: "Title max 100 chars", severity: "error" });
       return;
     }
-
+    if (dayjs(form.dueDate).isBefore(dayjs().startOf('day'))) {
+      setSnackbar({ open: true, message: "Due date must be today or future", severity: "error" });
+      return;
+    }
     try {
-      const payload = {
-        classId: formData.classId,
-        subjectId: formData.subjectId,
-        title: formData.title,
-        description: formData.description,
-        dueDate: formData.dueDate.toISOString(),
-        attachmentLink: formData.attachmentLink,
-      };
-
-      if (editingId) {
-        await API.put(`/api/homework/${editingId}`, payload);
-        setSnackbar({
-          open: true,
-          message: "✓ Homework updated successfully",
-          severity: "success",
-        });
+      if (editId) {
+        await api.put(`/homework/${editId}`, form);
+        setSnackbar({ open: true, message: "Homework updated", severity: "success" });
       } else {
-        await API.post("/api/homework", payload);
-        setSnackbar({
-          open: true,
-          message: "✓ Homework assigned successfully",
-          severity: "success",
-        });
+        await api.post("/homework", form);
+        setSnackbar({ open: true, message: "Homework assigned", severity: "success" });
       }
-
-      handleCloseDialog();
-      // Refresh homework list
-      const response = await API.get(`/api/homework/class/${selectedClass}`);
-      setHomework(response.data.data || []);
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || "Operation failed",
-        severity: "error",
-      });
+      setDialogOpen(false);
+      // Refresh
+      let url = `/homework?assignedBy=me`;
+      if (selectedClass) url += `&classId=${selectedClass}`;
+      const res = await api.get(url);
+      const hwData = res.data?.data || res.data || [];
+      setHomework(Array.isArray(hwData) ? hwData : []);
+    } catch (e) {
+      setSnackbar({ open: true, message: "Error saving homework", severity: "error" });
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this homework?"))
-      return;
+    if (!window.confirm("Delete this homework?")) return;
     try {
-      await API.delete(`/api/homework/${id}`);
-      setSnackbar({
-        open: true,
-        message: "✓ Homework deleted successfully",
-        severity: "success",
-      });
-      setHomework(homework.filter((hw) => hw.id !== id));
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || "Delete failed",
-        severity: "error",
-      });
+      await api.delete(`/homework/${id}`);
+      setSnackbar({ open: true, message: "Homework deleted", severity: "success" });
+      setHomework(homework.filter(hw => hw._id !== id));
+    } catch (e) {
+      setSnackbar({ open: true, message: "Error deleting homework", severity: "error" });
     }
   };
 
-  const columns = [
-    {
-      field: "subject",
-      headerName: "Subject",
-      flex: 1,
-      minWidth: 120,
-      renderCell: (params) => params.row.subjectId?.name || "N/A",
-    },
-    { field: "title", headerName: "Title", flex: 1, minWidth: 150 },
-    {
-      field: "description",
-      headerName: "Description",
-      flex: 1,
-      minWidth: 200,
-      renderCell: (params) => (
-        <Typography variant="body2" noWrap>
-          {params.row.description.substring(0, 50)}
-          {params.row.description.length > 50 ? "..." : ""}
-        </Typography>
-      ),
-    },
-    {
-      field: "dueDate",
-      headerName: "Due Date",
-      width: 130,
-      renderCell: (params) => dayjs(params.value).format("DD/MM/YYYY"),
-    },
-    {
-      field: "status",
-      headerName: "Status",
-      width: 110,
-      renderCell: (params) => {
-        const status = getStatus(params.row.dueDate);
-        return (
-          <Chip
-            label={status}
-            color={status === "Upcoming" ? "success" : "error"}
-            size="small"
-          />
-        );
-      },
-    },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 120,
-      sortable: false,
-      renderCell: (params) => (
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Button
-            size="small"
-            startIcon={<EditIcon />}
-            variant="outlined"
-            sx={{ color: "#D32F2F", borderColor: "#D32F2F" }}
-            onClick={() => handleOpenDialog(params.row)}
-          >
-            Edit
-          </Button>
-          <Button
-            size="small"
-            startIcon={<DeleteIcon />}
-            variant="outlined"
-            color="error"
-            onClick={() => handleDelete(params.row.id)}
-          >
-            Delete
-          </Button>
-        </Box>
-      ),
-    },
-  ];
-
+  // --- Render ---
   return (
     <TeacherLayout>
-      <Container maxWidth="lg" sx={{ py: 3 }}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 3,
-          }}
-        >
-          <Typography
-            variant="h4"
-            sx={{ fontWeight: "bold", color: "#D32F2F" }}
-          >
-            Homework Management
-          </Typography>
-          <Button
-            variant="contained"
-            sx={{
-              backgroundColor: "#D32F2F",
-              color: "white",
-              "&:hover": { backgroundColor: "#B71C1C" },
-            }}
-            onClick={() => handleOpenDialog()}
-          >
-            Assign Homework
-          </Button>
+      <Box sx={{ background: '#F5F5F5', minHeight: '100vh', p: 3 }}>
+        {/* SECTION 1 — Page Header */}
+      <Box mb={2}>
+        <Typography variant="h4" sx={{ color: '#D32F2F', fontWeight: 800 }}>Homework Management</Typography>
+        <Box display="flex" gap={4} mt={1}>
+          <div>Total Assigned: {stats.total}</div>
+          <div style={{ color: '#FFA000' }}>Due Today: {stats.dueToday}</div>
+          <div style={{ color: '#C62828' }}>Overdue: {stats.overdue}</div>
+          <div style={{ color: '#388E3C' }}>Upcoming: {stats.upcoming}</div>
         </Box>
-
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <FormControl fullWidth sx={{ maxWidth: 300 }}>
-            <InputLabel>Select Class</InputLabel>
-            <Select
-              value={selectedClass}
-              onChange={(e) => {
-                setSelectedClass(e.target.value);
-                setFormData((prev) => ({
-                  ...prev,
-                  classId: e.target.value,
-                  subjectId: "",
-                }));
+      </Box>
+      {/* SECTION 2 — Controls Bar */}
+      <Box display="flex" gap={2} mb={3} alignItems="center" flexWrap="wrap">
+        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Your Classes:</Typography>
+        {classes.length === 0 ? (
+          <Typography color="text.secondary">No classes assigned.</Typography>
+        ) : (
+          classes.map(cls => (
+            <Button
+              key={cls._id}
+              variant={selectedClass === cls._id ? "contained" : "outlined"}
+              onClick={() => setSelectedClass(cls._id)}
+              sx={{
+                borderRadius: 8,
+                textTransform: 'none',
+                bgcolor: selectedClass === cls._id ? "#D32F2F" : "transparent",
+                color: selectedClass === cls._id ? "white" : "#D32F2F",
+                borderColor: "#D32F2F"
               }}
-              label="Select Class"
             >
-              {classes.map((cls) => (
-                <MenuItem key={cls._id} value={cls._id}>
-                  {cls.name}
-                </MenuItem>
-              ))}
+              {cls.name}
+            </Button>
+          ))
+        )}
+        <Box flex={1} />
+        <FormControl sx={{ minWidth: 140 }}>
+          <InputLabel>Status</InputLabel>
+          <Select value={statusFilter} label="Status" onChange={e => setStatusFilter(e.target.value)}>
+            {STATUS_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <TextField placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} sx={{ minWidth: 200 }} />
+        <Box flex={1} />
+        <Button variant="contained" sx={{ bgcolor: '#D32F2F', color: 'white' }} onClick={() => openDialog()}>+ Assign Homework</Button>
+      </Box>
+      {/* SECTION 3 — Homework Cards Grid */}
+      {loading ? (
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}><CircularProgress /></Box>
+      ) : filteredHomework.length === 0 ? (
+        <Box textAlign="center" color="#888" mt={8}>
+          <Typography variant="h6" gutterBottom>📝 No homework assigned yet</Typography>
+          <div>Click "Assign Homework" to get started</div>
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
+          {filteredHomework.map(hw => {
+            const due = dayjs(hw.dueDate).startOf('day');
+            const today = dayjs().startOf('day');
+            const daysLeft = due.diff(today, 'day');
+            const borderColor = getStatusColor(daysLeft);
+            const dueLabel = getDueLabel(daysLeft);
+            let dueLabelColor = borderColor;
+            if (daysLeft < 0) dueLabelColor = '#C62828';
+            else if (daysLeft === 0) dueLabelColor = '#1976D2';
+            else if (daysLeft <= 2) dueLabelColor = '#FFA000';
+            else dueLabelColor = '#388E3C';
+            return (
+              <Grid item xs={12} sm={6} md={4} key={hw._id}>
+                <Paper elevation={3} sx={{ borderLeft: `8px solid ${borderColor}`, p: 2, minHeight: 180, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <Box display="flex" alignItems="center" justifyContent="space-between">
+                    <Typography variant="h6" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      📝 {hw.title}
+                    </Typography>
+                    <Box>
+                      <IconButton size="small" onClick={() => openDialog(hw)}><EditIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" onClick={() => handleDelete(hw._id)}><DeleteIcon fontSize="small" /></IconButton>
+                    </Box>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" mt={0.5}>{hw.className} | {hw.subject}</Typography>
+                  <Box my={1} borderTop="1px solid #eee" />
+                  <Typography variant="body2" color="text.primary" sx={{ whiteSpace: 'pre-line' }}>{hw.description}</Typography>
+                  <Box my={1} borderTop="1px solid #eee" />
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <span style={{ color: '#888' }}>Assigned: {dayjs(hw.assignedDate).format('DD MMM YYYY')}</span>
+                    <span style={{ color: dueLabelColor, fontWeight: daysLeft <= 0 ? 700 : 500 }}>{`Due: ${dayjs(hw.dueDate).format('DD MMM YYYY')}  •  ${dueLabel}`}</span>
+                  </Box>
+                  {hw.attachmentLink && <a href={hw.attachmentLink} target="_blank" rel="noopener noreferrer" style={{ color: '#1976D2', fontSize: 13, marginTop: 4 }}>Attachment</a>}
+                </Paper>
+              </Grid>
+            );
+          })}
+        </Grid>
+      )}
+      {/* SECTION 4 — Assign/Edit Homework Dialog */}
+      <Dialog open={dialogOpen} onClose={closeDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: '#D32F2F', color: 'white', fontWeight: 700 }}>{editId ? 'Edit Homework' : 'Assign New Homework'}</DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Class *</InputLabel>
+            <Select name="classId" value={form.classId} label="Class *" onChange={handleFormChange}>
+              {classes.map(cls => <MenuItem key={cls._id} value={cls._id}>{cls.name}</MenuItem>)}
             </Select>
           </FormControl>
-        </Paper>
-
-        {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Paper sx={{ height: 600, width: "100%" }}>
-            <DataGrid
-              rows={homework}
-              columns={columns}
-              pageSizeOptions={[10, 25, 50]}
-              initialState={{
-                pagination: { paginationModel: { pageSize: 10 } },
-              }}
-              sx={{
-                "& .MuiDataGrid-row": {
-                  backgroundColor: (params) =>
-                    getStatus(params.row.dueDate) === "Overdue"
-                      ? "#FFEBEE"
-                      : "inherit",
-                },
-              }}
-            />
-          </Paper>
-        )}
-
-        {/* Assign/Edit Dialog */}
-        <Dialog
-          open={dialogOpen}
-          onClose={handleCloseDialog}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle
-            sx={{
-              backgroundColor: "#D32F2F",
-              color: "white",
-              fontWeight: "bold",
-            }}
-          >
-            {editingId ? "Edit Homework" : "Assign Homework"}
-          </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <FormControl fullWidth>
-                <InputLabel>Class</InputLabel>
-                <Select
-                  value={formData.classId}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      classId: e.target.value,
-                      subjectId: "",
-                    })
-                  }
-                  label="Class"
-                >
-                  {classes.map((cls) => (
-                    <MenuItem key={cls._id} value={cls._id}>
-                      {cls.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth>
-                <InputLabel>Subject</InputLabel>
-                <Select
-                  value={formData.subjectId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, subjectId: e.target.value })
-                  }
-                  label="Subject"
-                >
-                  {subjects.map((subj) => (
-                    <MenuItem key={subj._id} value={subj._id}>
-                      {subj.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <TextField
-                label="Title"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                fullWidth
-                required
-              />
-
-              <TextField
-                label="Description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                fullWidth
-                required
-                multiline
-                rows={4}
-              />
-
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker
-                  label="Due Date"
-                  value={formData.dueDate}
-                  onChange={(date) =>
-                    setFormData({ ...formData, dueDate: date })
-                  }
-                  slotProps={{ textField: { fullWidth: true } }}
-                />
-              </LocalizationProvider>
-
-              <TextField
-                label="Attachment Link (Optional)"
-                value={formData.attachmentLink}
-                onChange={(e) =>
-                  setFormData({ ...formData, attachmentLink: e.target.value })
-                }
-                fullWidth
-                placeholder="https://example.com/file"
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
-            <Button
-              onClick={handleSave}
-              variant="contained"
-              sx={{
-                backgroundColor: "#D32F2F",
-                color: "white",
-                "&:hover": { backgroundColor: "#B71C1C" },
-              }}
-            >
-              {editingId ? "Update" : "Assign"}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-        >
-          <Alert
-            onClose={() => setSnackbar({ ...snackbar, open: false })}
-            severity={snackbar.severity}
-            sx={{ width: "100%" }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Container>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Subject *</InputLabel>
+            <Select name="subject" value={form.subject} label="Subject *" onChange={handleFormChange}>
+              {SUBJECTS.map(sub => <MenuItem key={sub} value={sub}>{sub}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField name="title" label="Title *" value={form.title} onChange={handleFormChange} fullWidth margin="normal" inputProps={{ maxLength: 100 }} required />
+          <TextField name="description" label="Description" value={form.description} onChange={handleFormChange} fullWidth margin="normal" multiline rows={4} />
+          <TextField name="dueDate" label="Due Date *" type="date" value={form.dueDate} onChange={handleFormChange} fullWidth margin="normal" InputLabelProps={{ shrink: true }} />
+          <TextField name="attachmentLink" label="Attachment URL" value={form.attachmentLink} onChange={handleFormChange} fullWidth margin="normal" />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDialog}>Cancel</Button>
+          <Button onClick={handleSave} variant="contained" sx={{ bgcolor: '#D32F2F', color: 'white' }}>{editId ? 'Update' : 'Assign'}</Button>
+        </DialogActions>
+      </Dialog>
+      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+      </Snackbar>
+      </Box>
     </TeacherLayout>
   );
 };

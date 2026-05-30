@@ -93,6 +93,9 @@ feeRecordSchema.index(
   { studentId: 1, feeType: 1, quarter: 1, academicYear: 1 },
   { unique: true },
 );
+feeRecordSchema.index({ classId: 1, academicYear: 1, dueDate: 1 });
+feeRecordSchema.index({ classId: 1, status: 1, dueDate: 1 });
+feeRecordSchema.index({ classId: 1, feeType: 1, dueDate: 1 });
 
 feeRecordSchema.pre("save", function () {
   const total = Number(this.totalAmount || 0);

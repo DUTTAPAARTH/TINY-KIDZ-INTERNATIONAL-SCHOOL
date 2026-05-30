@@ -261,6 +261,7 @@ const StudentMarks = () => {
                       return (
                         <TableRow
                           key={mark._id}
+                          data-testid={`mark-row-${mark._id}`}
                           sx={{
                             bgcolor:
                               bgColor === "#4caf50"

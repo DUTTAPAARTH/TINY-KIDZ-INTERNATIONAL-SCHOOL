@@ -20,6 +20,7 @@ import DemandSlip from "../../components/fees/DemandSlip";
 import PaymentReceipt from "../../components/fees/PaymentReceipt";
 import PrintDialog from "../../components/fees/PrintDialog";
 import API from "../../services/authService";
+import { Snackbar, Alert } from "@mui/material";
 
 const formatCurrency = (amount = 0) => `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 
@@ -83,6 +84,13 @@ const StudentFees = () => {
     const res = await API.get(`/fees/receipt/${paymentId}`);
     setReceiptData(res.data);
     setReceiptOpen(true);
+  };
+
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'info' });
+
+  const handlePayNow = (recordId) => {
+    // For now show snackbar — placeholder for payment flow
+    setSnack({ open: true, message: 'Payment flow not implemented (demo)', severity: 'info' });
   };
 
   return (
@@ -174,6 +182,17 @@ const StudentFees = () => {
                       <Chip size="small" label={record.status} color={record.status === "PAID" ? "success" : "error"} variant="outlined" />
                     </TableCell>
                     <TableCell>{record.dueDate ? String(record.dueDate).slice(0, 10) : "-"}</TableCell>
+                          <TableCell>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              data-testid={`pay-now-${record._id}`}
+                              onClick={() => handlePayNow(record._id)}
+                              sx={{ backgroundColor: '#D32F2F', '&:hover': { backgroundColor: '#B71C1C' }, textTransform: 'none' }}
+                            >
+                              Pay Now
+                            </Button>
+                          </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -236,6 +255,14 @@ const StudentFees = () => {
       <PrintDialog open={receiptOpen} onClose={() => setReceiptOpen(false)} title="Payment Receipt">
         <PaymentReceipt payment={receiptData} />
       </PrintDialog>
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={3000}
+        onClose={() => setSnack({ ...snack, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snack.severity}>{snack.message}</Alert>
+      </Snackbar>
     </StudentLayout>
   );
 };

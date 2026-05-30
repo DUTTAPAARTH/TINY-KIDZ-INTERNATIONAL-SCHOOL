@@ -33,15 +33,40 @@ exports.markAttendance = async (req, res) => {
     normalizedDate.setHours(0, 0, 0, 0);
 
     // Check if attendance already exists for this date
-    const existingAttendance = await Attendance.findOne({
+    let existingAttendance = await Attendance.findOne({
       classId,
       date: normalizedDate,
     });
 
     if (existingAttendance) {
-      return res.status(400).json({
-        success: false,
-        message: "Attendance already marked for this date",
+      // Validate records structure
+      for (const record of records) {
+        if (!record.studentId || !record.status) {
+          return res.status(400).json({
+            success: false,
+            message: "Each record must have studentId and status",
+          });
+        }
+        if (!["Present", "Absent", "Late"].includes(record.status)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Status must be "Present", "Absent", or "Late"',
+          });
+        }
+      }
+
+      existingAttendance.records = records;
+      existingAttendance.markedBy = req.user._id;
+      await existingAttendance.save();
+
+      await existingAttendance.populate("classId", "className section");
+      await existingAttendance.populate("records.studentId", "userId admissionNumber");
+      await existingAttendance.populate("markedBy", "name email -password");
+
+      return res.status(200).json({
+        success: true,
+        message: "Attendance updated successfully",
+        data: existingAttendance,
       });
     }
 

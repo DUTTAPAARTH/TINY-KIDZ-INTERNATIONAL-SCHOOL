@@ -8,6 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "playwright test",
+    "test:all-browsers": "cross-env PW_ALL_BROWSERS=true playwright test",
+    "test:smoke": "playwright test --config=playwright.smoke.config.js",
+    "test:install-browsers": "playwright install",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
@@ -16,6 +19,7 @@
     "test:report": "playwright show-report"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@vitejs/plugin-react": "^5.1.4",
     "playwright": "^1.58.2",
     "typescript": "~5.9.3",
@@ -31,6 +35,7 @@
     "@reduxjs/toolkit": "^2.11.2",
     "axios": "^1.13.6",
     "dayjs": "^1.11.19",
+    "framer-motion": "^12.38.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-hook-form": "^7.71.2",

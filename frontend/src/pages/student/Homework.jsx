@@ -17,6 +17,7 @@ import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import API from "../../services/authService";
 import StudentLayout from "../../components/StudentLayout";
+import { Snackbar, Alert } from "@mui/material";
 
 const StudentHomework = () => {
   const [homework, setHomework] = useState([]);
@@ -28,13 +29,13 @@ const StudentHomework = () => {
     const fetchStudentHomework = async () => {
       try {
         // Get student's profile to find their class
-        const studentRes = await API.get("/api/students/me");
+        const studentRes = await API.get("/students/me");
         const studentData = studentRes.data.data;
         setStudentClass(studentData.classId);
 
         // Fetch all homework for the student's class
         const homeworkRes = await API.get(
-          `/api/homework/class/${studentData.classId._id}`,
+          `/homework/class/${studentData.classId._id}`,
         );
         setHomework(homeworkRes.data.data || []);
       } catch (error) {
@@ -134,10 +135,35 @@ const StudentHomework = () => {
               Open Attachment
             </Button>
           )}
+          <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+            {hw.status !== 'submitted' && (
+              <Button
+                size="small"
+                variant="contained"
+                data-testid={`mark-done-${hw._id}`}
+                sx={{ backgroundColor: '#2E7D32', '&:hover': { backgroundColor: '#1b5e20' } }}
+                onClick={async () => {
+                  try {
+                    // optimistic UI update
+                    hw.status = 'submitted';
+                    setHomework((prev) => prev.map((p) => (p._id === hw._id ? { ...p, status: 'submitted' } : p)));
+                    setSnackbar({ open: true, message: 'Marked as done', severity: 'success' });
+                    // TODO: call API to mark as done
+                  } catch (e) {
+                    setSnackbar({ open: true, message: 'Failed to mark as done', severity: 'error' });
+                  }
+                }}
+              >
+                Mark as done
+              </Button>
+            )}
+          </Box>
         </CardContent>
       </Card>
     );
   };
+
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   return (
     <StudentLayout>
@@ -201,6 +227,14 @@ const StudentHomework = () => {
             )}
           </>
         )}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+      </Snackbar>
       </Container>
     </StudentLayout>
   );

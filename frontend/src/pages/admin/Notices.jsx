@@ -41,6 +41,7 @@ import Sidebar from "../../components/Sidebar";
 import { logout } from "../../redux/authSlice";
 import { useDispatch } from "react-redux";
 import axios from "axios";
+import { getAuthHeaders } from "../../utils/authSession";
 
 const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, path: "/admin/dashboard" },
@@ -83,9 +84,7 @@ const AdminNotices = () => {
     try {
       setLoading(true);
       const response = await axios.get("http://localhost:5000/api/notices", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+        headers: getAuthHeaders(),
       });
       setNotices(response.data.data || []);
     } catch (error) {
@@ -155,17 +154,13 @@ const AdminNotices = () => {
           `http://localhost:5000/api/notices/${editingNotice._id}`,
           formData,
           {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
+            headers: getAuthHeaders(),
           },
         );
         showSnackbar("Notice updated successfully");
       } else {
         await axios.post("http://localhost:5000/api/notices", formData, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
+          headers: getAuthHeaders(),
         });
         showSnackbar("Notice created successfully");
       }
@@ -183,9 +178,7 @@ const AdminNotices = () => {
     if (window.confirm("Are you sure you want to delete this notice?")) {
       try {
         await axios.delete(`http://localhost:5000/api/notices/${id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
+          headers: getAuthHeaders(),
         });
         showSnackbar("Notice deleted successfully");
         fetchNotices();

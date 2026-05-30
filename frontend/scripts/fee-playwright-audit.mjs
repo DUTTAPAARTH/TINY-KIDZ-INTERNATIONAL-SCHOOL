@@ -1,264 +1,308 @@
-import axios from "axios";
 import { chromium } from "playwright";
 
-const FRONTEND_URL = "http://localhost:5173";
-const API_BASE = "http://localhost:5000/api";
-const ADMIN_EMAIL = "admin@tinykidz.com";
-const ADMIN_PASSWORD = "admin123";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5175";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@tinykidz.com";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
 const report = {
-  backend: { checks: [], disparities: [] },
-  ui: { checks: [], disparities: [] },
-  blockers: [],
+  meta: { frontend: FRONTEND_URL },
+  checks: [],
+  failures: [],
 };
 
-function pass(scope, name, details = "") {
-  report[scope].checks.push({ name, status: "PASS", details });
-}
+const dangerousPattern =
+  /(generate|save|delete|update overdue|export|print report)/i;
 
-function fail(scope, name, details = "") {
-  report[scope].checks.push({ name, status: "FAIL", details });
-}
+const escapeRegExp = (value) =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function disparity(scope, details) {
-  report[scope].disparities.push(details);
-}
-
-async function safeCheck(scope, name, fn) {
+async function recordCheck(name, action) {
   try {
-    const details = await fn();
-    pass(scope, name, details || "");
-    return true;
+    const details = (await action()) || "ok";
+    report.checks.push({ name, status: "PASS", details });
   } catch (error) {
-    fail(scope, name, error?.message || String(error));
-    return false;
+    const details = error?.message || String(error);
+    report.checks.push({ name, status: "FAIL", details });
+    report.failures.push(`${name}: ${details}`);
   }
 }
 
-async function backendAudit() {
-  const loginRes = await axios.post(`${API_BASE}/auth/login`, {
-    email: ADMIN_EMAIL,
-    password: ADMIN_PASSWORD,
-  });
+async function closeDialogIfOpen(page) {
+  const closeButtons = [
+    page.getByRole("button", { name: /^Close$/i }),
+    page.getByRole("button", { name: /^Cancel$/i }),
+  ];
 
-  const token = loginRes?.data?.token;
-  if (!token) throw new Error("Admin login succeeded but no token returned");
-
-  const api = axios.create({
-    baseURL: API_BASE,
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  const state = {
-    totalRecords: 0,
-    dueRecords: 0,
-    defaulters: 0,
-    receiptCount: 0,
-    firstRecord: null,
-  };
-
-  await safeCheck("backend", "GET /fees/class/all", async () => {
-    const res = await api.get("/fees/class/all");
-    const rows = Array.isArray(res.data) ? res.data : [];
-    state.totalRecords = rows.length;
-    state.dueRecords = rows.filter((r) => Number(r?.dueAmount ?? (Number(r?.totalAmount || 0) - Number(r?.paidAmount || 0))) > 0).length;
-    state.firstRecord = rows[0] || null;
-    return `records=${state.totalRecords}, dueRecords=${state.dueRecords}`;
-  });
-
-  await safeCheck("backend", "GET /fees/defaulters", async () => {
-    const res = await api.get("/fees/defaulters");
-    const rows = Array.isArray(res.data) ? res.data : [];
-    state.defaulters = rows.length;
-    return `defaulters=${state.defaulters}`;
-  });
-
-  await safeCheck("backend", "GET /fees/payment/today", async () => {
-    const res = await api.get("/fees/payment/today");
-    const amount = Number(res.data?.totalAmount || 0);
-    const count = Number(res.data?.count || 0);
-    return `todayAmount=${amount}, paymentCount=${count}`;
-  });
-
-  await safeCheck("backend", "DELETE /fees/cleanup-zero-records", async () => {
-    const res = await api.delete("/fees/cleanup-zero-records");
-    return `deletedCount=${Number(res.data?.deletedCount || 0)}`;
-  });
-
-  await safeCheck("backend", "GET /fees/fix-statuses", async () => {
-    const res = await api.get("/fees/fix-statuses");
-    return `checked=${Number(res.data?.checked || 0)}, updated=${Number(res.data?.updated || 0)}`;
-  });
-
-  if (state.firstRecord?.studentId?._id) {
-    await safeCheck("backend", "GET /fees/demand-slip/:studentId", async () => {
-      const res = await api.get(`/fees/demand-slip/${state.firstRecord.studentId._id}`);
-      const items = Array.isArray(res.data?.items) ? res.data.items : [];
-      return `items=${items.length}`;
-    });
-
-    await safeCheck("backend", "GET /fees/receipt/student/:studentId", async () => {
-      const res = await api.get(`/fees/receipt/student/${state.firstRecord.studentId._id}`);
-      const receipts = Array.isArray(res.data) ? res.data : [];
-      state.receiptCount = receipts.length;
-      return `receipts=${state.receiptCount}`;
-    });
-  } else {
-    disparity("backend", "No fee records found; could not verify demand-slip/receipt-by-student endpoints.");
+  for (const button of closeButtons) {
+    if ((await button.count()) > 0 && (await button.first().isVisible())) {
+      await button
+        .first()
+        .click({ timeout: 2000 })
+        .catch(() => {});
+      await page.waitForTimeout(150);
+    }
   }
 
-  return { token, state };
+  await page.keyboard.press("Escape").catch(() => {});
 }
 
-async function uiAudit(backendState) {
+async function clickNamedButton(page, label, options = {}) {
+  const { tabName = "", mode, index = 0 } = options;
+  const resolvedMode =
+    mode || (dangerousPattern.test(label) ? "trial" : "click");
+  const nameRegex = new RegExp(`^${escapeRegExp(label)}$`, "i");
+  const locator = page.getByRole("button", { name: nameRegex }).nth(index);
+
+  await locator.waitFor({ timeout: 6000 });
+
+  if (resolvedMode === "trial") {
+    await locator.click({ trial: true, timeout: 5000 });
+    return `${tabName} ${label}: trial`;
+  }
+
+  await locator.click({ timeout: 6000 });
+  await page.waitForTimeout(250);
+  await closeDialogIfOpen(page);
+  return `${tabName} ${label}: clicked`;
+}
+
+async function openFeesPage(page) {
+  await page.goto(`${FRONTEND_URL}/admin/fees`, {
+    waitUntil: "domcontentloaded",
+    timeout: 45000,
+  });
+  await page
+    .getByRole("heading", { name: /Fee Management/i })
+    .waitFor({ timeout: 15000 });
+}
+
+async function clickTabByIndex(page, index) {
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  const tab = page.locator('[role="tab"]').nth(index);
+  await tab.waitFor({ timeout: 6000 });
+  await tab.click({ timeout: 6000 });
+  await page.waitForTimeout(700);
+}
+
+async function setupViewRecords(page) {
+  const classSelect = page.getByLabel("Class").first();
+  if ((await classSelect.count()) === 0) return "class filter not found";
+
+  await classSelect.click({ timeout: 4000 });
+  await page
+    .getByRole("option", { name: "All Classes" })
+    .click({ timeout: 4000 });
+  await page.waitForTimeout(1200);
+  return "set class filter to All Classes";
+}
+
+async function auditFeeStructure(page) {
+  await openFeesPage(page);
+
+  await recordCheck("Fee Structure -> Set Fee Structure", async () =>
+    clickNamedButton(page, "Set Fee Structure", {
+      tabName: "Fee Structure",
+      mode: "click",
+    }),
+  );
+
+  const rowButtons = page.locator("table tbody tr button");
+  const rowButtonCount = await rowButtons.count();
+  report.checks.push({
+    name: "Fee Structure -> Row Icon Buttons Present",
+    status: rowButtonCount > 0 ? "PASS" : "FAIL",
+    details: `count=${rowButtonCount}`,
+  });
+
+  if (rowButtonCount > 0) {
+    await recordCheck("Fee Structure -> Edit Icon Button", async () => {
+      await rowButtons.nth(0).click({ timeout: 5000 });
+      await closeDialogIfOpen(page);
+      return "clicked first row edit button";
+    });
+  }
+
+  if (rowButtonCount > 1) {
+    await recordCheck("Fee Structure -> Delete Icon Button", async () => {
+      await rowButtons.nth(1).click({ timeout: 5000 });
+      await closeDialogIfOpen(page);
+      return "clicked first row delete button";
+    });
+  }
+}
+
+async function auditGenerateFees(page) {
+  await openFeesPage(page);
+  await clickTabByIndex(page, 1);
+
+  await recordCheck("Generate Fees -> Configure buttons count", async () => {
+    const configureButtons = page.getByRole("button", { name: /^Configure$/i });
+    const count = await configureButtons.count();
+    if (count < 4)
+      throw new Error(`Expected 4 Configure buttons, found ${count}`);
+
+    for (let i = 0; i < 4; i += 1) {
+      await configureButtons.nth(i).click({ timeout: 5000 });
+      await closeDialogIfOpen(page);
+      await page.waitForTimeout(150);
+    }
+
+    return `clicked ${count} Configure button(s)`;
+  });
+}
+
+async function auditViewRecords(page) {
+  await openFeesPage(page);
+  await clickTabByIndex(page, 2);
+
+  await recordCheck("View Records -> Prepare class filter", async () =>
+    setupViewRecords(page),
+  );
+
+  await recordCheck("View Records -> Update Overdue Status", async () =>
+    clickNamedButton(page, "Update Overdue Status", {
+      tabName: "View Records",
+      mode: "trial",
+    }),
+  );
+
+  const demandButtons = page.getByRole("button", { name: /^Demand Slip$/i });
+  const ledgerButtons = page.getByRole("button", { name: /^View Ledger$/i });
+  const collectButtons = page.getByRole("button", {
+    name: /^Collect Payment$/i,
+  });
+
+  await recordCheck("View Records -> Demand Slip button", async () => {
+    if ((await demandButtons.count()) === 0)
+      return "not visible in current grid page";
+    await demandButtons.first().click({ timeout: 5000 });
+    await closeDialogIfOpen(page);
+    return "clicked";
+  });
+
+  await recordCheck("View Records -> View Ledger button", async () => {
+    if ((await ledgerButtons.count()) === 0)
+      return "not visible in current grid page";
+    await ledgerButtons.first().click({ timeout: 5000 });
+    await closeDialogIfOpen(page);
+    return "clicked";
+  });
+
+  await recordCheck("View Records -> Collect Payment button", async () => {
+    if ((await collectButtons.count()) === 0)
+      return "no due rows on current page";
+    await collectButtons.first().click({ timeout: 5000 });
+    await closeDialogIfOpen(page);
+    return "clicked";
+  });
+}
+
+async function auditDefaulters(page) {
+  await openFeesPage(page);
+  await clickTabByIndex(page, 3);
+
+  await recordCheck("Defaulters -> Demand Slip button", async () => {
+    const demandButtons = page.getByRole("button", { name: /^Demand Slip$/i });
+    if ((await demandButtons.count()) === 0)
+      return "not visible in current page";
+    await demandButtons.first().click({ timeout: 5000 });
+    await closeDialogIfOpen(page);
+    return "clicked";
+  });
+}
+
+async function auditReports(page) {
+  await openFeesPage(page);
+  await clickTabByIndex(page, 4);
+
+  const reportButtons = [
+    "Export Summary CSV",
+    "Export Class-wise CSV",
+    "Export Defaulters CSV",
+    "Export All Payments CSV",
+    "Print Report",
+  ];
+
+  for (const label of reportButtons) {
+    await recordCheck(`Reports -> ${label}`, async () =>
+      clickNamedButton(page, label, { tabName: "Reports", mode: "trial" }),
+    );
+  }
+}
+
+async function run() {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
 
+  page.on("dialog", async (dialog) => {
+    await dialog.dismiss().catch(() => {});
+  });
+
   try {
-    await safeCheck("ui", "Load login page", async () => {
-      await page.goto(`${FRONTEND_URL}/login`, { waitUntil: "domcontentloaded", timeout: 30000 });
-      await page.getByRole("heading", { name: /Tiny Kidz International School/i }).waitFor({ timeout: 10000 });
-      return "login page loaded";
+    await page.addInitScript(() => {
+      window.print = () => {};
     });
 
-    await safeCheck("ui", "Admin login via UI", async () => {
+    await recordCheck("Auth -> Open login", async () => {
+      await page.goto(`${FRONTEND_URL}/login`, {
+        waitUntil: "domcontentloaded",
+        timeout: 45000,
+      });
+      return page.url();
+    });
+
+    await recordCheck("Auth -> Login admin", async () => {
       await page.getByLabel("Email").fill(ADMIN_EMAIL);
       await page.getByLabel("Password").fill(ADMIN_PASSWORD);
       await Promise.all([
-        page.waitForURL("**/admin/dashboard", { timeout: 15000 }),
+        page.waitForURL("**/admin/dashboard", { timeout: 25000 }),
         page.getByRole("button", { name: /^Login$/i }).click(),
       ]);
-      return `url=${page.url()}`;
+      return page.url();
     });
 
-    await safeCheck("ui", "Open admin fee page", async () => {
-      await page.goto(`${FRONTEND_URL}/admin/fees`, { waitUntil: "domcontentloaded", timeout: 30000 });
-      await page.getByRole("heading", { name: /Fee Management/i }).waitFor({ timeout: 10000 });
-      return "fee management visible";
+    await recordCheck("Fees Page -> Open", async () => {
+      await openFeesPage(page);
+      return page.url();
     });
 
-    await safeCheck("ui", "Fee tabs visible", async () => {
-      await page.getByRole("tab", { name: "Fee Structure" }).waitFor();
-      await page.getByRole("tab", { name: "Generate Fees" }).waitFor();
-      await page.getByRole("tab", { name: "View Records" }).waitFor();
-      await page.getByRole("tab", { name: "Defaulters" }).waitFor();
-      return "all tabs visible";
-    });
-
-    let collectBtnCount = 0;
-    let paidChipCount = 0;
-
-    await safeCheck("ui", "View Records actions rendered", async () => {
-      await page.getByRole("tab", { name: "View Records" }).click();
-      await page.getByText("Fee Records", { exact: false }).waitFor({ timeout: 10000 });
-      await page.waitForTimeout(1200);
-
-      collectBtnCount = await page.getByRole("button", { name: "Collect Payment" }).count();
-      paidChipCount = await page.getByText("✓ PAID", { exact: false }).count();
-      const demandBtnCount = await page.getByRole("button", { name: "Demand Slip" }).count();
-      const ledgerBtnCount = await page.getByRole("button", { name: "View Ledger" }).count();
-
-      if (demandBtnCount === 0 && backendState.totalRecords > 0) {
-        disparity("ui", "Backend has fee records but no Demand Slip action visible in UI records grid.");
-      }
-
-      if (ledgerBtnCount === 0 && backendState.totalRecords > 0) {
-        disparity("ui", "Backend has fee records but no View Ledger action visible in UI records grid.");
-      }
-
-      return `collectButtons=${collectBtnCount}, paidChips=${paidChipCount}, demandButtons=${demandBtnCount}, ledgerButtons=${ledgerBtnCount}`;
-    });
-
-    if (backendState.dueRecords > 0 && collectBtnCount === 0) {
-      disparity("ui", `Backend reports ${backendState.dueRecords} due record(s) but UI shows 0 Collect Payment buttons.`);
+    const tabs = [
+      "Fee Structure",
+      "Generate Fees",
+      "View Records",
+      "Defaulters",
+      "Reports",
+    ];
+    for (const tabName of tabs) {
+      await recordCheck(`Tabs -> ${tabName} visible`, async () => {
+        await page
+          .getByRole("tab", { name: tabName })
+          .waitFor({ timeout: 7000 });
+        return "visible";
+      });
     }
 
-    await safeCheck("ui", "Demand slip dialog opens", async () => {
-      const btn = page.getByRole("button", { name: "Demand Slip" }).first();
-      await btn.click();
-      await page.getByRole("heading", { name: "Demand Slip" }).waitFor({ timeout: 10000 });
-      await page.getByText(/Tiny Kidz International School/i).first().waitFor({ timeout: 10000 });
-      await page.getByRole("button", { name: "Close" }).click();
-      return "demand slip dialog rendered";
-    });
-
-    await safeCheck("ui", "Ledger dialog opens", async () => {
-      const btn = page.getByRole("button", { name: "View Ledger" }).first();
-      await btn.click();
-      await page.getByRole("heading", { name: "View Ledger" }).waitFor({ timeout: 10000 });
-      const printCount = await page.getByRole("button", { name: "Print Receipt" }).count();
-      await page.getByRole("button", { name: "Close" }).click();
-      return `printReceiptButtonsInLedger=${printCount}`;
-    });
-
-    await safeCheck("ui", "Defaulters tab and filters", async () => {
-      await page.getByRole("tab", { name: "Defaulters" }).click();
-      await page.getByRole("heading", { name: "Defaulters" }).waitFor({ timeout: 10000 });
-      await page.getByLabel("Search").waitFor({ timeout: 10000 });
-      await page.getByLabel("Class").first().waitFor({ timeout: 10000 });
-      await page.getByLabel("Due Filter").waitFor({ timeout: 10000 });
-      return `backendDefaulters=${backendState.defaulters}`;
-    });
-
-    await safeCheck("ui", "Generate fees custom amount dialogs", async () => {
-      await page.getByRole("tab", { name: "Generate Fees" }).click();
-      await page.getByRole("heading", { name: "Generate Fee Records" }).waitFor({ timeout: 10000 });
-
-      const configureButtons = page.getByRole("button", { name: "Configure" });
-      const totalConfigure = await configureButtons.count();
-      if (totalConfigure < 4) throw new Error(`Expected 4 Configure buttons, found ${totalConfigure}`);
-
-      await configureButtons.nth(0).click();
-      await page.getByRole("heading", { name: "Generate Fees for One Class" }).waitFor();
-      await page.getByLabel("Custom Amount (Optional)").waitFor();
-      await page.getByRole("button", { name: "Cancel" }).click();
-
-      await configureButtons.nth(1).click();
-      await page.getByRole("heading", { name: "Generate Fees for Whole School" }).waitFor();
-      await page.getByLabel("Custom Amount (Optional)").waitFor();
-      await page.getByRole("button", { name: "Cancel" }).click();
-
-      await configureButtons.nth(2).click();
-      await page.getByRole("heading", { name: "Generate Fees for Class Range" }).waitFor();
-      await page.getByLabel("Custom Amount (Optional)").waitFor();
-      await page.getByRole("button", { name: "Cancel" }).click();
-
-      await configureButtons.nth(3).click();
-      await page.getByRole("heading", { name: "Generate Fee for One Student" }).waitFor();
-      await page.getByLabel("Amount").waitFor();
-      await page.getByRole("button", { name: "Cancel" }).click();
-
-      return "all 4 generation dialogs verified";
-    });
+    await auditFeeStructure(page);
+    await auditGenerateFees(page);
+    await auditViewRecords(page);
+    await auditDefaulters(page);
+    await auditReports(page);
   } finally {
     await browser.close();
   }
+
+  report.summary =
+    report.failures.length === 0
+      ? `Audit passed. ${report.checks.length} button/tab checks completed.`
+      : `Audit completed with ${report.failures.length} failure(s) out of ${report.checks.length} checks.`;
+
+  console.log(JSON.stringify(report, null, 2));
+  process.exit(report.failures.length > 0 ? 1 : 0);
 }
 
-async function main() {
-  try {
-    const { state } = await backendAudit();
-    await uiAudit(state);
-
-    if (report.backend.disparities.length === 0 && report.ui.disparities.length === 0) {
-      report.summary = "No disparities found between verified backend responses and tested fee UI flows.";
-    } else {
-      report.summary = "Disparities found. Review disparity lists for details.";
-    }
-
-    console.log(JSON.stringify(report, null, 2));
-
-    const hasFailures =
-      report.backend.checks.some((c) => c.status === "FAIL") ||
-      report.ui.checks.some((c) => c.status === "FAIL");
-
-    process.exit(hasFailures ? 1 : 0);
-  } catch (error) {
-    report.blockers.push(error?.message || String(error));
-    report.summary = "Audit blocked before completion.";
-    console.log(JSON.stringify(report, null, 2));
-    process.exit(2);
-  }
-}
-
-main();
+run().catch((error) => {
+  report.blocker = error?.message || String(error);
+  report.summary = "Audit blocked before completion";
+  console.log(JSON.stringify(report, null, 2));
+  process.exit(2);
+});

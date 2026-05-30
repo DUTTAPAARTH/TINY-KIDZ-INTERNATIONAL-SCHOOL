@@ -1,7 +1,7 @@
+const mongoose = require("mongoose");
 const Teacher = require("../../models/Teacher");
 const User = require("../../models/User");
 const bcrypt = require("bcryptjs");
-const mongoose = require("mongoose");
 
 // GET /api/teachers - Get all teachers (Admin only)
 exports.getAllTeachers = async (req, res) => {
@@ -11,116 +11,56 @@ exports.getAllTeachers = async (req, res) => {
     const search = req.query.search || "";
     const classId = req.query.classId || "";
     const sortBy = req.query.sortBy || "createdAt";
-    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+    const sortOrder = req.query.sortOrder || "desc";
 
-    const matchStage = {};
+    const query = {};
 
-    if (classId && mongoose.Types.ObjectId.isValid(classId)) {
-      matchStage.classIds = new mongoose.Types.ObjectId(classId);
+    if (
+      classId &&
+      classId !== "all" &&
+      mongoose.Types.ObjectId.isValid(classId)
+    ) {
+      query.classIds = mongoose.Types.ObjectId(classId);
     }
-
-    const sortMap = {
-      name: "userId.name",
-      email: "userId.email",
-      employeeId: "employeeId",
-      phone: "phone",
-      qualification: "qualification",
-      createdAt: "createdAt",
-    };
-
-    const sortField = sortMap[sortBy] || "createdAt";
-
-    const pipeline = [
-      { $match: matchStage },
-      {
-        $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "userId",
-        },
-      },
-      {
-        $unwind: {
-          path: "$userId",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "classes",
-          localField: "classIds",
-          foreignField: "_id",
-          as: "classIds",
-        },
-      },
-    ];
 
     if (search) {
-      pipeline.push({
-        $match: {
-          $or: [
-            { employeeId: { $regex: search, $options: "i" } },
-            { phone: { $regex: search, $options: "i" } },
-            { qualification: { $regex: search, $options: "i" } },
-            { "userId.name": { $regex: search, $options: "i" } },
-            { "userId.email": { $regex: search, $options: "i" } },
-          ],
-        },
-      });
+      // Find matching users (by name or email) with teacher role
+      const users = await User.find({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+        ],
+        role: "teacher",
+      }).select("_id");
+
+      const userIds = users.map((u) => u._id);
+
+      query.$or = [
+        { userId: { $in: userIds } },
+        { employeeId: { $regex: search, $options: "i" } },
+      ];
     }
 
-    pipeline.push({
-      $project: {
-        userId: {
-          _id: "$userId._id",
-          name: "$userId.name",
-          email: "$userId.email",
-          isActive: "$userId.isActive",
-        },
-        employeeId: 1,
-        phone: 1,
-        qualification: 1,
-        classIds: {
-          $map: {
-            input: "$classIds",
-            as: "cls",
-            in: {
-              _id: "$$cls._id",
-              className: "$$cls.className",
-              section: "$$cls.section",
-            },
-          },
-        },
-        isActive: 1,
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    });
+    const sort = {};
+    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
 
-    pipeline.push({
-      $facet: {
-        metadata: [{ $count: "total" }],
-        data: [
-          { $sort: { [sortField]: sortOrder } },
-          { $skip: (page - 1) * limit },
-          { $limit: limit },
-        ],
-      },
-    });
+    const teachers = await Teacher.find(query)
+      .populate("userId", "name email isActive")
+      .populate("classIds", "className section")
+      .sort(sort)
+      .limit(limit)
+      .skip((page - 1) * limit)
+      .exec();
 
-    const result = await Teacher.aggregate(pipeline);
-    const total = result?.[0]?.metadata?.[0]?.total || 0;
-    const teachers = result?.[0]?.data || [];
+    const count = await Teacher.countDocuments(query);
 
     res.status(200).json({
       success: true,
       data: teachers,
       pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit) || 0,
+        total: count,
+        page: parseInt(page, 10),
+        pages: Math.ceil(count / limit),
       },
     });
   } catch (error) {
@@ -143,6 +83,7 @@ exports.createTeacher = async (req, res) => {
       employeeId,
       phone,
       qualification,
+      designation,
       classIds,
     } = req.body;
 
@@ -184,22 +125,12 @@ exports.createTeacher = async (req, res) => {
     const newUser = new User({
       name,
       email,
-      password, // Will be hashed by pre-save hook
+      password,
       role: "teacher",
       isActive: true,
     });
 
-    let savedUser;
-    try {
-      savedUser = await newUser.save();
-    } catch (userError) {
-      console.error("Error creating user:", userError);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to create user account",
-        error: userError.message,
-      });
-    }
+    const savedUser = await newUser.save();
 
     // Create Teacher document
     const newTeacher = new Teacher({
@@ -207,21 +138,21 @@ exports.createTeacher = async (req, res) => {
       employeeId,
       phone,
       qualification,
+      designation: designation || "Teacher",
       classIds: classIds || [],
       isActive: true,
     });
 
-    try {
-      await newTeacher.save();
-    } catch (teacherError) {
-      // Rollback: delete the user if teacher creation fails
-      await User.findByIdAndDelete(savedUser._id);
-      console.error("Error creating teacher:", teacherError);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to create teacher. User account rolled back.",
-        error: teacherError.message,
-      });
+    await newTeacher.save();
+
+    // Sync with Class model
+    if (classIds && classIds.length > 0) {
+      await mongoose
+        .model("Class")
+        .updateMany(
+          { _id: { $in: classIds } },
+          { classTeacher: newTeacher._id },
+        );
     }
 
     // Populate and return
@@ -294,7 +225,9 @@ exports.updateTeacher = async (req, res) => {
       employeeId,
       phone,
       qualification,
+      designation,
       classIds,
+      assignedClasses,
       isActive,
     } = req.body;
 
@@ -306,52 +239,48 @@ exports.updateTeacher = async (req, res) => {
       });
     }
 
-    // Update User fields if provided
+    // Update User fields
     if (name || email || isActive !== undefined) {
       const userUpdate = {};
       if (name) userUpdate.name = name;
-      if (email) {
-        // Check if email is already taken by another user
-        const existingUser = await User.findOne({
-          email,
-          _id: { $ne: teacher.userId },
-        });
-        if (existingUser) {
-          return res.status(400).json({
-            success: false,
-            message: "Email already exists",
-          });
-        }
-        userUpdate.email = email;
-      }
+      if (email) userUpdate.email = email;
       if (isActive !== undefined) userUpdate.isActive = isActive;
-
       await User.findByIdAndUpdate(teacher.userId, userUpdate);
     }
 
     // Update Teacher fields
-    if (employeeId) {
-      // Check if employee ID is already taken
-      const existingTeacher = await Teacher.findOne({
-        employeeId,
-        _id: { $ne: id },
-      });
-      if (existingTeacher) {
-        return res.status(400).json({
-          success: false,
-          message: "Employee ID already exists",
-        });
-      }
-      teacher.employeeId = employeeId;
-    }
+    if (employeeId) teacher.employeeId = employeeId;
     if (phone) teacher.phone = phone;
     if (qualification) teacher.qualification = qualification;
-    if (classIds !== undefined) teacher.classIds = classIds;
+    if (designation) teacher.designation = designation;
     if (isActive !== undefined) teacher.isActive = isActive;
+
+    // Handle class assignment sync
+    const newClassIds = assignedClasses || classIds;
+    if (newClassIds !== undefined) {
+      // 1. Remove this teacher from any class they were previously assigned to
+      await mongoose
+        .model("Class")
+        .updateMany(
+          { classTeacher: teacher._id },
+          { $unset: { classTeacher: "" } },
+        );
+
+      teacher.classIds = newClassIds;
+
+      // 2. Set this teacher as the class teacher for the newly assigned classes
+      if (newClassIds.length > 0) {
+        await mongoose
+          .model("Class")
+          .updateMany(
+            { _id: { $in: newClassIds } },
+            { classTeacher: teacher._id },
+          );
+      }
+    }
 
     await teacher.save();
 
-    // Return updated teacher
     const updatedTeacher = await Teacher.findById(id)
       .populate("userId", "name email isActive")
       .populate("classIds", "className section");
@@ -389,6 +318,11 @@ exports.deleteTeacher = async (req, res) => {
     // Delete Teacher document
     await Teacher.findByIdAndDelete(id);
 
+    // Sync with Class model: Clear classTeacher for all classes of this teacher
+    await mongoose
+      .model("Class")
+      .updateMany({ classTeacher: id }, { classTeacher: null });
+
     // Delete User document
     await User.findByIdAndDelete(userId);
 
@@ -409,10 +343,18 @@ exports.deleteTeacher = async (req, res) => {
 // GET /api/teachers/me - Get logged-in teacher's own profile (Teacher only)
 exports.getMe = async (req, res) => {
   try {
-    // req.user is set by protect middleware
-    const teacher = await Teacher.findOne({ userId: req.user._id })
+    const userId = req.user.id || req.user._id;
+
+    const teacher = await Teacher.findOne({ userId })
       .populate("userId", "name email isActive")
-      .populate("classIds", "className section");
+      .populate({
+        path: "classIds",
+        select: "className section academicYear students",
+        populate: {
+          path: "students",
+          select: "_id",
+        },
+      });
 
     if (!teacher) {
       return res.status(404).json({
@@ -421,19 +363,16 @@ exports.getMe = async (req, res) => {
       });
     }
 
-    // Fetch subjects for this teacher
-    const subjects = await mongoose.connection
-      .collection("subjects")
-      .find({ teacherId: teacher._id })
-      .project({ name: 1, code: 1 })
-      .toArray();
+    const teacherObj = teacher.toObject();
+    // Alias classIds to assignedClasses for frontend compatibility as requested
+    teacherObj.assignedClasses = (teacherObj.classIds || []).map((cls) => ({
+      ...cls,
+      studentCount: Array.isArray(cls.students) ? cls.students.length : 0,
+    }));
 
     res.status(200).json({
       success: true,
-      data: {
-        ...teacher.toObject(),
-        subjects,
-      },
+      data: teacherObj,
     });
   } catch (error) {
     console.error("Error fetching teacher profile:", error);

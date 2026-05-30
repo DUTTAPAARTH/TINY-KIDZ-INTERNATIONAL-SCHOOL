@@ -29,6 +29,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import API from "../../services/authService";
 import TeacherLayout from "../../components/TeacherLayout";
+import { useSelector } from "react-redux";
 
 const getGradeColor = (percentage) => {
   if (percentage >= 90) return "success"; // A+
@@ -72,13 +73,21 @@ const TeacherMarks = () => {
     examDate: dayjs(),
   });
 
+  const { token } = useSelector((state) => state.auth);
+
   // Fetch classes on mount
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/classes");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await fetch("http://localhost:5000/api/teachers/me", { headers });
         const data = await response.json();
-        setClasses(data.map((c) => ({ id: c._id, name: c.classCode })));
+        const clsList = data.data?.assignedClasses || data.data?.classIds || [];
+        const formattedClasses = clsList.map((c) => ({ id: c._id || c.id, name: `${c.className || ''} ${c.section || ''}`.trim() || c.name }));
+        setClasses(formattedClasses);
+        if (formattedClasses.length > 0) {
+          setSelectedClass(formattedClasses[0].id || formattedClasses[0]._id);
+        }
       } catch (err) {
         console.error("Error fetching classes:", err);
         setSnackbar({
@@ -89,7 +98,8 @@ const TeacherMarks = () => {
       }
     };
     fetchClasses();
-  }, []);
+  }, [token]);
+
 
   // Fetch subjects when class is selected
   useEffect(() => {
@@ -394,21 +404,33 @@ const TeacherMarks = () => {
 
             <Paper sx={{ p: 3, mb: 3, bgcolor: "white", borderRadius: 2 }}>
               <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Select Class</InputLabel>
-                    <Select
-                      value={selectedClass}
-                      label="Select Class"
-                      onChange={(e) => setSelectedClass(e.target.value)}
-                    >
-                      {classes.map((cls) => (
-                        <MenuItem key={cls.id} value={cls.id}>
+                <Grid item xs={12}>
+                  <Box display="flex" gap={2} mb={1} alignItems="center" flexWrap="wrap">
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mr: 2 }}>
+                      Your Classes:
+                    </Typography>
+                    {classes.length === 0 ? (
+                      <Typography color="text.secondary">No classes assigned.</Typography>
+                    ) : (
+                      classes.map((cls) => (
+                        <Button
+                          key={cls.id}
+                          variant={selectedClass === cls.id ? "contained" : "outlined"}
+                          onClick={() => setSelectedClass(cls.id)}
+                          sx={{
+                            borderRadius: 8,
+                            textTransform: 'none',
+                            bgcolor: selectedClass === cls.id ? "#D32F2F" : "transparent",
+                            color: selectedClass === cls.id ? "white" : "#D32F2F",
+                            borderColor: "#D32F2F",
+                            mb: 1
+                          }}
+                        >
                           {cls.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                        </Button>
+                      ))
+                    )}
+                  </Box>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth disabled={!selectedClass}>

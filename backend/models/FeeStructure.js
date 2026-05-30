@@ -48,6 +48,26 @@ const feeStructureSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    q1Amount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    q2Amount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    q3Amount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    q4Amount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
     lateFeePerDay: {
       type: Number,
       default: 50,
@@ -87,6 +107,14 @@ feeStructureSchema.virtual("totalAnnualFee").get(function () {
 
 feeStructureSchema.virtual("quarterlyTuition").get(function () {
   return Number(this.tuitionFee || 0) / 4;
+});
+
+feeStructureSchema.pre("save", function () {
+  const quarterly = Math.round(Number(this.tuitionFee || 0) / 4);
+  if (!Number(this.q1Amount)) this.q1Amount = quarterly;
+  if (!Number(this.q2Amount)) this.q2Amount = quarterly;
+  if (!Number(this.q3Amount)) this.q3Amount = quarterly;
+  if (!Number(this.q4Amount)) this.q4Amount = quarterly;
 });
 
 feeStructureSchema.set("toJSON", { virtuals: true });

@@ -89,6 +89,7 @@ const Teachers = () => {
     employeeId: "",
     phone: "",
     qualification: "",
+    designation: "Teacher",
     classIds: [],
   });
 
@@ -208,6 +209,7 @@ const Teachers = () => {
       employeeId: "",
       phone: "",
       qualification: "",
+      designation: "Teacher",
       classIds: [],
     });
     setOpenDialog(true);
@@ -225,6 +227,7 @@ const Teachers = () => {
       employeeId: teacher.employeeId || "",
       phone: teacher.phone || "",
       qualification: teacher.qualification || "",
+      designation: teacher.designation || "Teacher",
       classIds: teacher.classIds?.map((c) => c._id) || [],
     });
     setOpenDialog(true);
@@ -252,9 +255,10 @@ const Teachers = () => {
   // Handle class selection change
   const handleClassChange = (event) => {
     const { value } = event.target;
+    // value is an array because of multiple attribute in Select
     setFormData((prev) => ({
       ...prev,
-      classIds: value ? [value] : [],
+      classIds: typeof value === "string" ? value.split(",") : value,
     }));
   };
 
@@ -267,7 +271,8 @@ const Teachers = () => {
         !formData.email ||
         !formData.employeeId ||
         !formData.phone ||
-        !formData.qualification
+        !formData.qualification ||
+        !formData.designation
       ) {
         showSnackbar("Please fill all required fields", "error");
         return;
@@ -289,7 +294,8 @@ const Teachers = () => {
         employeeId: formData.employeeId,
         phone: formData.phone,
         qualification: formData.qualification,
-        classIds: formData.classIds,
+        designation: formData.designation,
+        assignedClasses: formData.classIds,
       };
 
       if (dialogMode === "add") {
@@ -713,6 +719,24 @@ const Teachers = () => {
               }}
             />
 
+            <TextField
+              fullWidth
+              label="Designation"
+              name="designation"
+              value={formData.designation}
+              onChange={handleFormChange}
+              required
+              placeholder="e.g., Senior Teacher"
+              sx={{
+                "& .MuiOutlinedInput-root.Mui-focused fieldset": {
+                  borderColor: "#D32F2F",
+                },
+                "& .MuiInputLabel-root.Mui-focused": {
+                  color: "#D32F2F",
+                },
+              }}
+            />
+
             <Typography sx={{ fontWeight: 700, color: "#D32F2F", mt: 1 }}>
               Class Assignment
             </Typography>
@@ -722,27 +746,39 @@ const Teachers = () => {
                 id="classes-label"
                 sx={{ "&.Mui-focused": { color: "#D32F2F" } }}
               >
-                Class
+                Assigned Classes
               </InputLabel>
               <Select
                 labelId="classes-label"
-                value={formData.classIds[0] || ""}
+                label="Assigned Classes"
+                multiple
+                value={formData.classIds}
                 onChange={handleClassChange}
-                label="Class"
                 MenuProps={{
                   PaperProps: {
                     sx: { maxHeight: 320 },
                   },
                 }}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((value) => {
+                      const cls = classes.find(c => c._id === value);
+                      return (
+                        <Chip 
+                          key={value} 
+                          label={cls ? `${cls.className}-${cls.section}` : value} 
+                          size="small"
+                        />
+                      );
+                    })}
+                  </Box>
+                )}
                 sx={{
                   "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
                     borderColor: "#D32F2F",
                   },
                 }}
               >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
                 {classes.map((cls) => (
                   <MenuItem key={cls._id} value={cls._id}>
                     Class {cls.className}-{cls.section}

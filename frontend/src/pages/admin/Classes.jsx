@@ -92,7 +92,6 @@ const Classes = () => {
 
   const handleLogout = () => {
     dispatch(logout());
-    localStorage.clear();
     navigate("/login");
   };
 

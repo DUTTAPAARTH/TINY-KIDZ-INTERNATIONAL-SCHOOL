@@ -130,8 +130,17 @@ const Students = () => {
       const response = await API.get("/students", { params });
 
       if (response.data.success) {
-        setStudents(response.data.data);
-        setTotalRows(response.data.pagination.total);
+        const rows =
+          response.data.data?.students ||
+          response.data.students ||
+          (Array.isArray(response.data.data) ? response.data.data : []);
+        setStudents(rows);
+        setTotalRows(
+          response.data.data?.total ||
+          response.data.pagination?.total ||
+          response.data.total ||
+          0,
+        );
       }
     } catch (error) {
       console.error("Error fetching students:", error);
@@ -221,7 +230,7 @@ const Students = () => {
       parentPhone: "",
       address: "",
       gender: "Male",
-      academicYear: "2024-25",
+      academicYear: "2025-26",
     });
     setOpenDialog(true);
   };

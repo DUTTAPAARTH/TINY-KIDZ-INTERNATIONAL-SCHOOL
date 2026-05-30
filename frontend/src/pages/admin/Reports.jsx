@@ -36,6 +36,7 @@ import {
 } from "recharts";
 import axios from "axios";
 import AdminLayout from "../../components/AdminLayout";
+import { getAuthHeaders } from "../../utils/authSession";
 
 const API_URL = "http://localhost:5000/api";
 
@@ -83,9 +84,8 @@ const Reports = () => {
       setLoading(true);
       setError(null);
 
-      const token = localStorage.getItem("token");
       const config = {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(),
       };
 
       // Fetch all reports in parallel

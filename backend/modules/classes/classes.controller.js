@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Class = require("../../models/Class");
 
 const classPopulate = {
@@ -78,6 +79,13 @@ exports.createClass = async (req, res) => {
       isActive: true,
     });
 
+    // Sync with Teacher model
+    if (classTeacher) {
+      await mongoose.model("Teacher").findByIdAndUpdate(classTeacher, {
+        $addToSet: { classIds: newClass._id }
+      });
+    }
+
     const populatedClass = await Class.findById(newClass._id).populate(
       classPopulate,
     );
@@ -114,8 +122,23 @@ exports.updateClass = async (req, res) => {
     if (className !== undefined) classDoc.className = className;
     if (section !== undefined) classDoc.section = section;
     if (academicYear !== undefined) classDoc.academicYear = academicYear;
-    if (classTeacher !== undefined)
+    
+    const oldTeacher = classDoc.classTeacher;
+    if (classTeacher !== undefined) {
       classDoc.classTeacher = classTeacher || null;
+      
+      // Sync with Teacher model
+      if (oldTeacher && oldTeacher.toString() !== (classTeacher || "")) {
+        await mongoose.model("Teacher").findByIdAndUpdate(oldTeacher, {
+          $pull: { classIds: id }
+        });
+      }
+      if (classTeacher && (!oldTeacher || oldTeacher.toString() !== classTeacher)) {
+        await mongoose.model("Teacher").findByIdAndUpdate(classTeacher, {
+          $addToSet: { classIds: id }
+        });
+      }
+    }
 
     await classDoc.save();
 

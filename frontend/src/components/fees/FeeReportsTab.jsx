@@ -7,7 +7,6 @@ import {
   CardContent,
   CircularProgress,
   FormControl,
-  Grid,
   InputLabel,
   LinearProgress,
   MenuItem,
@@ -234,13 +233,22 @@ const FeeReportsTab = () => {
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       {error ? <Alert severity="error">{error}</Alert> : null}
 
-      <Grid container spacing={2}>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            sm: "repeat(2, minmax(0, 1fr))",
+            lg: "repeat(3, minmax(0, 1fr))",
+          },
+          gap: 2,
+        }}
+      >
         {summaryCardsConfig.map((card) => {
           const Icon = card.icon;
           const value = summary?.[card.key] ?? 0;
           return (
-            <Grid item xs={12} md={4} key={card.key}>
-              <Card sx={{ background: card.bg, border: "1px solid #f4c3c3" }}>
+            <Card key={card.key} sx={{ background: card.bg, border: "1px solid #f4c3c3", minHeight: 110 }}>
                 <CardContent>
                   {loading ? (
                     <Skeleton variant="rectangular" height={90} />
@@ -271,14 +279,20 @@ const FeeReportsTab = () => {
                   )}
                 </CardContent>
               </Card>
-            </Grid>
           );
         })}
-      </Grid>
+      </Box>
 
       <Paper sx={{ p: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+            gap: 2,
+            alignItems: "center",
+          }}
+        >
+          <Box>
             {loading ? (
               <Skeleton variant="circular" width={200} height={200} sx={{ mx: "auto" }} />
             ) : (
@@ -307,8 +321,8 @@ const FeeReportsTab = () => {
                 </Box>
               </Box>
             )}
-          </Grid>
-          <Grid item xs={12} md={6}>
+          </Box>
+          <Box>
             {loading ? (
               <Stack spacing={1}>
                 <Skeleton height={40} />
@@ -332,8 +346,8 @@ const FeeReportsTab = () => {
                 </Typography>
               </Stack>
             )}
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
       </Paper>
 
       <Paper sx={{ p: 3 }}>
@@ -362,8 +376,14 @@ const FeeReportsTab = () => {
         </Box>
       </Paper>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} lg={7}>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", lg: "1.4fr 1fr" },
+          gap: 2,
+        }}
+      >
+        <Box>
           <Paper sx={{ p: 3, height: "100%" }}>
             <Typography variant="h6" sx={{ fontWeight: 700, color: "#D32F2F", mb: 2 }}>
               Class-wise Collection
@@ -392,8 +412,8 @@ const FeeReportsTab = () => {
               )}
             </Box>
           </Paper>
-        </Grid>
-        <Grid item xs={12} lg={5}>
+        </Box>
+        <Box>
           <Paper sx={{ p: 3, height: "100%" }}>
             <Typography variant="h6" sx={{ fontWeight: 700, color: "#D32F2F", mb: 2 }}>
               Fee Type Distribution
@@ -422,19 +442,25 @@ const FeeReportsTab = () => {
                 </ResponsiveContainer>
               )}
             </Box>
-            <Grid container spacing={1}>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))" },
+                gap: 1,
+              }}
+            >
               {feeTypeWise.map((row) => (
-                <Grid item xs={6} key={row.feeType}>
+                <Box key={row.feeType}>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: pieColors[row.feeType] || "#9E9E9E" }} />
                     <Typography variant="caption">{row.feeType}</Typography>
                   </Stack>
-                </Grid>
+                </Box>
               ))}
-            </Grid>
+            </Box>
           </Paper>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" sx={{ fontWeight: 700, color: "#D32F2F", mb: 2 }}>
@@ -443,7 +469,8 @@ const FeeReportsTab = () => {
         {loading ? (
           <Skeleton variant="rectangular" height={260} />
         ) : (
-          <Table>
+          <Box sx={{ overflowX: "auto" }}>
+            <Table sx={{ minWidth: 860 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: "#FFEBEE" }}>
                 <TableCell sx={{ fontWeight: 700 }}>Quarter</TableCell>
@@ -483,7 +510,8 @@ const FeeReportsTab = () => {
                 <TableCell align="center" sx={{ fontWeight: 800 }}>{quarterTotalPercent.toFixed(1)}%</TableCell>
               </TableRow>
             </TableBody>
-          </Table>
+            </Table>
+          </Box>
         )}
       </Paper>
 

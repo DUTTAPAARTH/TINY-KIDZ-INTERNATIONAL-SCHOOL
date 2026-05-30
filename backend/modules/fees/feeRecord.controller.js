@@ -3,28 +3,49 @@ const FeeRecord = require("../../models/FeeRecord");
 const FeeStructure = require("../../models/FeeStructure");
 const Student = require("../../models/Student");
 const Class = require("../../models/Class");
+const User = require("../../models/User");
 
-const dueDateByQuarter = (structure, quarter) => {
-  if (quarter === "Q1") return structure.q1DueDate;
-  if (quarter === "Q2") return structure.q2DueDate;
-  if (quarter === "Q3") return structure.q3DueDate;
-  if (quarter === "Q4") return structure.q4DueDate;
-  return structure.q1DueDate;
+const getDueDateForQuarter = (structure, quarter) => {
+  switch (quarter) {
+    case "Q1":
+      return structure.q1DueDate;
+    case "Q2":
+      return structure.q2DueDate;
+    case "Q3":
+      return structure.q3DueDate;
+    case "Q4":
+      return structure.q4DueDate;
+    default:
+      return new Date();
+  }
 };
 
-const amountByType = (structure, feeType, quarter) => {
-  const feeTypeAmountMap = {
-    Tuition:
-      quarter === "Annual"
-        ? Number(structure.tuitionFee || 0)
-        : Number(structure.tuitionFee || 0) / 4,
-    Admission: Number(structure.admissionFee || 0),
-    Uniform: Number(structure.uniformFee || 0),
-    Activity: Number(structure.activityFee || 0),
-    Transport: Number(structure.transportFee || 0),
-  };
-
-  return Number(feeTypeAmountMap[feeType] || 0);
+const getAmountForFeeType = (structure, feeType, quarter) => {
+  switch (feeType) {
+    case "Tuition":
+      switch (quarter) {
+        case "Q1":
+          return Number(structure.q1Amount || Math.round(Number(structure.tuitionFee || 0) / 4));
+        case "Q2":
+          return Number(structure.q2Amount || Math.round(Number(structure.tuitionFee || 0) / 4));
+        case "Q3":
+          return Number(structure.q3Amount || Math.round(Number(structure.tuitionFee || 0) / 4));
+        case "Q4":
+          return Number(structure.q4Amount || Math.round(Number(structure.tuitionFee || 0) / 4));
+        default:
+          return Number(structure.tuitionFee || 0);
+      }
+    case "Admission":
+      return Number(structure.admissionFee || 0);
+    case "Uniform":
+      return Number(structure.uniformFee || 0);
+    case "Activity":
+      return Number(structure.activityFee || 0);
+    case "Transport":
+      return Number(structure.transportFee || 0);
+    default:
+      return 0;
+  }
 };
 
 const buildDescription = (feeType, quarter) => {
@@ -114,7 +135,7 @@ const generateForClassCore = async ({
         const amount =
           customAmount !== undefined && customAmount !== null
             ? Number(customAmount)
-            : amountByType(structure, feeType, quarter);
+            : getAmountForFeeType(structure, feeType, quarter);
 
         // Skip zero or invalid mapped amounts to avoid broken fee records.
         if (!Number.isFinite(amount) || amount <= 0) {
@@ -137,7 +158,7 @@ const generateForClassCore = async ({
           quarter: qValue,
           description: buildDescription(feeType, quarter),
           totalAmount: amount,
-          dueDate: dueDateByQuarter(structure, quarter),
+          dueDate: getDueDateForQuarter(structure, quarter),
           lateFeePerDay: Number(structure.lateFeePerDay || 50),
         });
       }
@@ -480,7 +501,7 @@ const getStudentFeeRecords = async (req, res) => {
 const getClassFeeRecords = async (req, res) => {
   try {
     const { classId } = req.params;
-    const { quarter, status, feeType, academicYear, search } = req.query;
+    const { quarter, status, feeType, academicYear, search, page, limit } = req.query;
 
     const filter = {};
     if (classId && classId !== "all") filter.classId = classId;
@@ -489,26 +510,89 @@ const getClassFeeRecords = async (req, res) => {
     if (feeType && feeType !== "All") filter.feeType = feeType;
     if (academicYear && academicYear !== "All") filter.academicYear = academicYear;
 
-    const records = await FeeRecord.find(filter)
-      .populate({
-        path: "studentId",
-        select: "admissionNumber userId",
-        populate: { path: "userId", select: "name" },
-      })
-      .populate("classId", "className section")
-      .sort({ dueDate: 1 });
+    const hasSearch = Boolean(search && String(search).trim());
+    if (hasSearch) {
+      const term = String(search).trim();
+      const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
 
-    let finalRecords = records;
-    if (search && String(search).trim()) {
-      const term = String(search).trim().toLowerCase();
-      finalRecords = records.filter((r) => {
-        const name = String(r?.studentId?.userId?.name || "").toLowerCase();
-        const admission = String(r?.studentId?.admissionNumber || "").toLowerCase();
-        return name.includes(term) || admission.includes(term);
-      });
+      const [users, studentsByAdmission] = await Promise.all([
+        User.find({ name: regex }).select("_id").lean().maxTimeMS(10000),
+        Student.find({ admissionNumber: regex }).select("_id userId").lean().maxTimeMS(10000),
+      ]);
+
+      const userIdSet = new Set(users.map((u) => String(u._id)));
+      const matchedStudentIds = new Set(studentsByAdmission.map((s) => String(s._id)));
+
+      for (const student of studentsByAdmission) {
+        if (student.userId && userIdSet.has(String(student.userId))) {
+          matchedStudentIds.add(String(student._id));
+        }
+      }
+
+      if (users.length > 0) {
+        const studentsByUser = await Student.find({
+          userId: { $in: users.map((u) => u._id) },
+        })
+          .select("_id")
+          .lean()
+          .maxTimeMS(10000);
+
+        studentsByUser.forEach((s) => matchedStudentIds.add(String(s._id)));
+      }
+
+      if (matchedStudentIds.size === 0) {
+        return res.json({ data: [], pagination: { total: 0, page: 1, limit: 25, totalPages: 0 } });
+      }
+
+      filter.studentId = { $in: Array.from(matchedStudentIds).map((id) => new mongoose.Types.ObjectId(id)) };
     }
 
-    return res.json(finalRecords);
+    const hasPagination = page !== undefined || limit !== undefined;
+
+    if (!hasPagination) {
+      const records = await FeeRecord.find(filter)
+        .populate({
+          path: "studentId",
+          select: "admissionNumber userId",
+          populate: { path: "userId", select: "name" },
+        })
+        .populate("classId", "className section")
+        .sort({ dueDate: 1, _id: 1 })
+        .lean()
+        .maxTimeMS(10000);
+
+      return res.json(records);
+    }
+
+    const parsedLimit = Math.min(Math.max(Number(limit) || 25, 1), 200);
+    const parsedPage = Math.max(Number(page) || 1, 1);
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const [records, total] = await Promise.all([
+      FeeRecord.find(filter)
+        .populate({
+          path: "studentId",
+          select: "admissionNumber userId",
+          populate: { path: "userId", select: "name" },
+        })
+        .populate("classId", "className section")
+        .sort({ dueDate: 1, _id: 1 })
+        .skip(skip)
+        .limit(parsedLimit)
+        .lean()
+        .maxTimeMS(10000),
+      FeeRecord.countDocuments(filter),
+    ]);
+
+    return res.json({
+      data: records,
+      pagination: {
+        total,
+        page: parsedPage,
+        limit: parsedLimit,
+        totalPages: Math.ceil(total / parsedLimit),
+      },
+    });
   } catch (error) {
     return res
       .status(500)
@@ -556,6 +640,56 @@ const cleanupZeroRecords = async (req, res) => {
   }
 };
 
+const getFeeDebugSummary = async (req, res) => {
+  try {
+    const total = await FeeRecord.countDocuments();
+    const zeroAmount = await FeeRecord.countDocuments({ totalAmount: { $lte: 0 } });
+    const withAmount = await FeeRecord.countDocuments({ totalAmount: { $gt: 0 } });
+    const paid = await FeeRecord.countDocuments({ status: "PAID" });
+    const partial = await FeeRecord.countDocuments({ status: "PARTIAL" });
+    const due = await FeeRecord.countDocuments({ status: "DUE" });
+    const overdue = await FeeRecord.countDocuments({ status: "OVERDUE" });
+
+    const sampleDocs = await FeeRecord.find({ totalAmount: { $gt: 0 } })
+      .limit(5)
+      .populate({
+        path: "studentId",
+        select: "admissionNumber userId",
+        populate: { path: "userId", select: "name" },
+      })
+      .populate("classId", "className section")
+      .sort({ createdAt: -1 });
+
+    const samples = sampleDocs.map((doc) => ({
+      _id: doc._id,
+      studentName: doc.studentId?.userId?.name || "N/A",
+      admissionNumber: doc.studentId?.admissionNumber || "-",
+      className: doc.classId?.className || "-",
+      section: doc.classId?.section || "-",
+      feeType: doc.feeType,
+      quarter: doc.quarter,
+      totalAmount: doc.totalAmount,
+      paidAmount: doc.paidAmount,
+      status: doc.status,
+      dueDate: doc.dueDate,
+      academicYear: doc.academicYear,
+    }));
+
+    return res.json({
+      total,
+      zeroAmount,
+      withAmount,
+      statusBreakdown: { paid, partial, due, overdue },
+      samples,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch fee debug summary",
+      error: error.message,
+    });
+  }
+};
+
 const fixStatuses = async (req, res) => {
   try {
     const records = await FeeRecord.find({});
@@ -595,6 +729,7 @@ module.exports = {
   generateFeeForStudent,
   getStudentFeeRecords,
   getClassFeeRecords,
+  getFeeDebugSummary,
   updateOverdueStatus,
   cleanupZeroRecords,
   fixStatuses,

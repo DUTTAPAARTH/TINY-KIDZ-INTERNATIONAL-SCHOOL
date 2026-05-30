@@ -14,6 +14,7 @@ import AdminClasses from "./pages/admin/Classes";
 import AdminFees from "./pages/admin/Fees";
 import AdminNotices from "./pages/admin/Notices";
 import TeacherDashboard from "./pages/teacher/Dashboard";
+import TeacherMyClasses from "./pages/teacher/MyClasses";
 import TeacherMarks from "./pages/teacher/Marks";
 import TeacherAttendance from "./pages/teacher/Attendance";
 import TeacherHomework from "./pages/teacher/Homework";
@@ -24,7 +25,8 @@ import StudentAttendance from "./pages/student/Attendance";
 import StudentHomework from "./pages/student/Homework";
 import StudentFees from "./pages/student/Fees";
 import StudentNotices from "./pages/student/Notices";
-import PrivateRoute from "./components/ProtectedRoute";
+import StudentProfile from "./pages/student/Profile";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   const { token, role } = useSelector((state) => state.auth);
@@ -34,118 +36,123 @@ function App() {
     <Router>
       <Routes>
         {/* Login Route */}
-        <Route
-          path="/login"
-          element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />}
-        />
+        <Route path="/login" element={<LoginPage />} />
 
         {/* Admin Route */}
         <Route
           path="/admin/dashboard"
           element={
-            <PrivateRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin"]}>
               <AdminDashboard />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/admin/reports"
           element={
-            <PrivateRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin"]}>
               <AdminReports />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/admin/students"
           element={
-            <PrivateRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin"]}>
               <AdminStudents />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/admin/teachers"
           element={
-            <PrivateRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin"]}>
               <AdminTeachers />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/admin/classes"
           element={
-            <PrivateRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin"]}>
               <AdminClasses />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/admin/fees"
           element={
-            <PrivateRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin"]}>
               <AdminFees />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/admin/notices"
           element={
-            <PrivateRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin"]}>
               <AdminNotices />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
-        {/* Teacher Route */}
         <Route
           path="/teacher/dashboard"
           element={
-            <PrivateRoute allowedRoles={["teacher"]}>
+            <ProtectedRoute allowedRoles={["teacher"]}>
               <TeacherDashboard />
-            </PrivateRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/teacher/classes"
+          element={
+            <ProtectedRoute allowedRoles={["teacher"]}>
+              <TeacherMyClasses />
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/teacher/marks"
           element={
-            <PrivateRoute allowedRoles={["teacher"]}>
+            <ProtectedRoute allowedRoles={["teacher"]}>
               <TeacherMarks />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/teacher/attendance"
           element={
-            <PrivateRoute allowedRoles={["teacher"]}>
+            <ProtectedRoute allowedRoles={["teacher"]}>
               <TeacherAttendance />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/teacher/homework"
           element={
-            <PrivateRoute allowedRoles={["teacher"]}>
+            <ProtectedRoute allowedRoles={["teacher"]}>
               <TeacherHomework />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/teacher/notices"
           element={
-            <PrivateRoute allowedRoles={["teacher"]}>
+            <ProtectedRoute allowedRoles={["teacher"]}>
               <TeacherNotices />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
@@ -153,83 +160,77 @@ function App() {
         <Route
           path="/student/dashboard"
           element={
-            <PrivateRoute allowedRoles={["student"]}>
+            <ProtectedRoute allowedRoles={["student"]}>
               <StudentDashboard />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/student/marks"
           element={
-            <PrivateRoute allowedRoles={["student"]}>
+            <ProtectedRoute allowedRoles={["student"]}>
               <StudentMarks />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/student/attendance"
           element={
-            <PrivateRoute allowedRoles={["student"]}>
+            <ProtectedRoute allowedRoles={["student"]}>
               <StudentAttendance />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/student/homework"
           element={
-            <PrivateRoute allowedRoles={["student"]}>
+            <ProtectedRoute allowedRoles={["student"]}>
               <StudentHomework />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/student/fees"
           element={
-            <PrivateRoute allowedRoles={["student"]}>
+            <ProtectedRoute allowedRoles={["student"]}>
               <StudentFees />
-            </PrivateRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/student/notices"
           element={
-            <PrivateRoute allowedRoles={["student"]}>
+            <ProtectedRoute allowedRoles={["student"]}>
               <StudentNotices />
-            </PrivateRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/student/profile"
+          element={
+            <ProtectedRoute allowedRoles={["student"]}>
+              <StudentProfile />
+            </ProtectedRoute>
           }
         />
 
         {/* Default Route */}
-        <Route
-          path="/"
-          element={
-            isAuthenticated ? (
-              <Navigate to={`/${getDefaultRoute()}`} />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
+        <Route path="/" element={<Navigate to="/login" replace />} />
 
         {/* Fallback Route */}
         <Route
           path="*"
-          element={<Navigate to={isAuthenticated ? "/" : "/login"} />}
+          element={<Navigate to={isAuthenticated ? "/login" : "/login"} replace />}
         />
       </Routes>
     </Router>
   );
-}
-
-function getDefaultRoute() {
-  const role = localStorage.getItem("role");
-  const validRoles = ["admin", "teacher", "student"];
-  return validRoles.includes(role) ? `${role}/dashboard` : "login";
 }
 
 export default App;

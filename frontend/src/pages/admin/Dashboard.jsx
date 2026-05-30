@@ -103,8 +103,16 @@ const AdminDashboard = () => {
         });
 
         setFeesSummary({
-          totalFeeCollected: feesResponse?.data?.totalFeeCollected || 0,
-          totalDue: feesResponse?.data?.totalDue || 0,
+          totalFeeCollected:
+            feesResponse?.data?.totalFeeCollected ??
+            feesResponse?.data?.totalCollected ??
+            feesResponse?.data?.data?.totalFeeCollected ??
+            feesResponse?.data?.data?.totalCollected ??
+            0,
+          totalDue:
+            feesResponse?.data?.totalDue ??
+            feesResponse?.data?.data?.totalDue ??
+            0,
         });
 
         setRecentNotices((noticesResponse?.data?.data || []).slice(0, 3));
@@ -124,7 +132,6 @@ const AdminDashboard = () => {
 
   const handleLogout = () => {
     dispatch(logout());
-    localStorage.clear();
     navigate("/login");
   };
 
