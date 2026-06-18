@@ -46,7 +46,7 @@ const StudentProfile = () => {
 
   useEffect(() => {
     axios
-      .get(`${API_BASE}`/students/me", { headers: getAuthHeaders() })
+      .get(`${API_BASE}/students/me`, { headers: getAuthHeaders() })
       .then((res) => setProfile(res.data?.data || null))
       .catch((err) => {
         console.error("Error fetching profile:", err);

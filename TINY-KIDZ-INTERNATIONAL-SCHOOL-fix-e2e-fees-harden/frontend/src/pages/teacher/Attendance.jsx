@@ -48,7 +48,7 @@ const TeacherAttendance = () => {
     const fetchClasses = async () => {
       try {
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const response = await fetch(`${API_BASE}`/teachers/me", { headers });
+        const response = await fetch(`${API_BASE}/teachers/me`, { headers });
         const data = await response.json();
         const clsList = data.data?.assignedClasses || data.data?.classIds || [];
         const formattedClasses = clsList.map((c) => ({ id: c._id || c.id, name: `${c.className || ''} ${c.section || ''}`.trim() || c.name }));
@@ -155,7 +155,7 @@ const TeacherAttendance = () => {
         records,
       };
 
-      const response = await fetch(`${API_BASE}`/attendance", {
+      const response = await fetch(`${API_BASE}/attendance`, {
         method: "POST",
         headers,
         body: JSON.stringify(payload),

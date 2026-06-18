@@ -33,7 +33,7 @@ const AdminMarks = () => {
   const fetchClasses = async () => {
     try {
       const res = await marksAPI.getMarks();
-      const clsRes = await fetch(`${API_BASE}`/classes", {
+      const clsRes = await fetch(`${API_BASE}/classes`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       const clsData = await clsRes.json();

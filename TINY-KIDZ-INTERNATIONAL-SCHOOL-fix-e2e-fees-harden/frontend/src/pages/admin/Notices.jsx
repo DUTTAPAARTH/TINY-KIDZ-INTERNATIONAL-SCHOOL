@@ -85,7 +85,7 @@ const AdminNotices = () => {
   const fetchNotices = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE}`/notices", {
+      const response = await axios.get(`${API_BASE}/notices`, {
         headers: getAuthHeaders(),
       });
       setNotices(response.data.data || []);
@@ -161,7 +161,7 @@ const AdminNotices = () => {
         );
         showSnackbar("Notice updated successfully");
       } else {
-        await axios.post(`${API_BASE}`/notices", formData, {
+        await axios.post(`${API_BASE}/notices`, formData, {
           headers: getAuthHeaders(),
         });
         showSnackbar("Notice created successfully");

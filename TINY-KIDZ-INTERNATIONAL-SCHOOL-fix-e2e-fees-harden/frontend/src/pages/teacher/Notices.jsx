@@ -48,7 +48,7 @@ const TeacherNotices = () => {
   const fetchNotices = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE}`/notices", {
+      const response = await axios.get(`${API_BASE}/notices`, {
         headers: getAuthHeaders(),
       });
       setNotices(response.data.data || []);
