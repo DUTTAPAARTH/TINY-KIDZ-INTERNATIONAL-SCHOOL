@@ -1,0 +1,494 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\PAARTH DUTTA\\Downloads\\TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden\\TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden\\frontend\\playwright.config.js",
+    "rootDir": "C:/Users/PAARTH DUTTA/Downloads/TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden/TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden/frontend/tests",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/PAARTH DUTTA/Downloads/TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden/TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Users/PAARTH DUTTA/Downloads/TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden/TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden/frontend/tests",
+        "testIgnore": [
+          "**/*.cjs"
+        ],
+        "testMatch": [
+          "**/*-e2e.spec.js"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "tests/playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "tests/test-results.json"
+        }
+      ],
+      [
+        "junit",
+        {
+          "outputFile": "tests/junit.xml"
+        }
+      ],
+      [
+        "list",
+        null
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "marks-module-e2e.spec.js",
+      "file": "marks-module-e2e.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Marks Module - E2E Tests",
+          "file": "marks-module-e2e.spec.js",
+          "line": 22,
+          "column": 6,
+          "specs": [],
+          "suites": [
+            {
+              "title": "Teacher Marks",
+              "file": "marks-module-e2e.spec.js",
+              "line": 25,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should load teacher marks page with heading",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 13299,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-06-17T17:19:01.843Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "d396a5fafec5d4e30481-8551874efc26034e8ef5",
+                  "file": "marks-module-e2e.spec.js",
+                  "line": 26,
+                  "column": 5
+                },
+                {
+                  "title": "should show class buttons or no-classes message",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 14097,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-06-17T17:19:15.440Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "d396a5fafec5d4e30481-c674f4ab27d110944baa",
+                  "file": "marks-module-e2e.spec.js",
+                  "line": 32,
+                  "column": 5
+                },
+                {
+                  "title": "should show Save All, Print and Refresh buttons when selections made",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "C:\\Users\\PAARTH DUTTA\\Downloads\\TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden\\TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden\\frontend\\tests\\marks-module-e2e.spec.js",
+                            "line": 60,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "expectedStatus": "skipped",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "skipped",
+                          "duration": 14762,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-06-17T17:19:29.565Z",
+                          "annotations": [
+                            {
+                              "type": "skip",
+                              "location": {
+                                "file": "C:\\Users\\PAARTH DUTTA\\Downloads\\TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden\\TINY-KIDZ-INTERNATIONAL-SCHOOL-fix-e2e-fees-harden\\frontend\\tests\\marks-module-e2e.spec.js",
+                                "line": 60,
+                                "column": 14
+                              }
+                            }
+                          ],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "d396a5fafec5d4e30481-6f7e73f8f5b3f80499a0",
+                  "file": "marks-module-e2e.spec.js",
+                  "line": 53,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Student Marks",
+              "file": "marks-module-e2e.spec.js",
+              "line": 109,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should load student marks with heading",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 10489,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-06-17T17:19:44.370Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "d396a5fafec5d4e30481-7b253185a3afb9a2a544",
+                  "file": "marks-module-e2e.spec.js",
+                  "line": 110,
+                  "column": 5
+                },
+                {
+                  "title": "should show performance summary cards when data exists",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 12274,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-06-17T17:19:54.896Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "d396a5fafec5d4e30481-39568dc9007b2d643fc6",
+                  "file": "marks-module-e2e.spec.js",
+                  "line": 116,
+                  "column": 5
+                },
+                {
+                  "title": "should show marks table with subject, marks, and grade columns",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 13153,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-06-17T17:20:07.196Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "d396a5fafec5d4e30481-938ce8681389a11bdee5",
+                  "file": "marks-module-e2e.spec.js",
+                  "line": 128,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Admin Marks",
+              "file": "marks-module-e2e.spec.js",
+              "line": 146,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "should load admin marks page with heading and filters",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 11358,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-06-17T17:20:20.377Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "d396a5fafec5d4e30481-7ce237021b563e06796d",
+                  "file": "marks-module-e2e.spec.js",
+                  "line": 147,
+                  "column": 5
+                },
+                {
+                  "title": "should show marks table when records exist",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 20888,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-06-17T17:20:31.765Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "d396a5fafec5d4e30481-cb4d3e99d4cb6742164a",
+                  "file": "marks-module-e2e.spec.js",
+                  "line": 155,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Role Security",
+              "file": "marks-module-e2e.spec.js",
+              "line": 173,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "student cannot access teacher marks page",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 13241,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-06-17T17:20:52.678Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "d396a5fafec5d4e30481-8359418cbcb363c13c8d",
+                  "file": "marks-module-e2e.spec.js",
+                  "line": 174,
+                  "column": 5
+                },
+                {
+                  "title": "teacher cannot access admin marks page",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 13916,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-06-17T17:21:05.942Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "d396a5fafec5d4e30481-0236e2a90da8383df9bf",
+                  "file": "marks-module-e2e.spec.js",
+                  "line": 181,
+                  "column": 5
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-06-17T17:18:55.251Z",
+    "duration": 145817.70299999998,
+    "expected": 9,
+    "skipped": 1,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

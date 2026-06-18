@@ -1,0 +1,91 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+/* Print Styles for Demand Slips and Receipts */
+@media print {
+  /* Hide elements that shouldn't be printed */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Reset body margins for printing */
+  body {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+
+  .MuiDrawer-root,
+  .MuiAppBar-root {
+    display: none !important;
+  }
+
+  /* Container for A4 printable documents */
+  .print-container {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 20mm;
+    margin: 0 auto;
+    background: white;
+  }
+
+  /* Remove shadows and ensure proper spacing */
+  * {
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ensure tables print properly */
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  /* Hide dialog backdrop and apply proper styling */
+  .MuiDialog-root {
+    position: relative !important;
+  }
+
+  .MuiDialog-container {
+    display: block !important;
+  }
+
+  .MuiDialog-paper {
+    margin: 0 !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+  }
+
+  /* Convert colors to black and white for printing (optional) */
+  /* Uncomment below if you want black and white printing */
+  /*
+  * {
+    color: black !important;
+    background: white !important;
+    border-color: black !important;
+  }
+  */
+}

@@ -1,0 +1,46 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "playwright test",
+    "test:all-browsers": "cross-env PW_ALL_BROWSERS=true playwright test",
+    "test:smoke": "playwright test --config=playwright.smoke.config.js",
+    "test:install-browsers": "playwright install",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:fees": "playwright test tests/fee-module-e2e.spec.js",
+    "test:fees:ui": "playwright test tests/fee-module-e2e.spec.js --ui",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@vitejs/plugin-react": "^5.1.4",
+    "playwright": "^1.58.2",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.1"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.9",
+    "@mui/material": "^7.3.9",
+    "@mui/x-data-grid": "^8.27.3",
+    "@mui/x-date-pickers": "^8.27.2",
+    "@reduxjs/toolkit": "^2.11.2",
+    "axios": "^1.13.6",
+    "dayjs": "^1.11.19",
+    "framer-motion": "^12.38.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-hook-form": "^7.71.2",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.13.1",
+    "recharts": "^3.8.0"
+  }
+}

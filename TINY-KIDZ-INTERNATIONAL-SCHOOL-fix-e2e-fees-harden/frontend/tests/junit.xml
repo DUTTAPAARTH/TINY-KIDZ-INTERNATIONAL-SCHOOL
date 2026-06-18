@@ -1,0 +1,30 @@
+<testsuites id="" name="" tests="10" failures="0" skipped="1" errors="0" time="145.81770299999997">
+<testsuite name="marks-module-e2e.spec.js" timestamp="2026-06-17T17:18:58.336Z" hostname="chromium" tests="10" failures="0" skipped="1" time="137.477" errors="0">
+<testcase name="Marks Module - E2E Tests › Teacher Marks › should load teacher marks page with heading" classname="marks-module-e2e.spec.js" time="13.299">
+</testcase>
+<testcase name="Marks Module - E2E Tests › Teacher Marks › should show class buttons or no-classes message" classname="marks-module-e2e.spec.js" time="14.097">
+</testcase>
+<testcase name="Marks Module - E2E Tests › Teacher Marks › should show Save All, Print and Refresh buttons when selections made" classname="marks-module-e2e.spec.js" time="14.762">
+<properties>
+<property name="skip" value="">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Marks Module - E2E Tests › Student Marks › should load student marks with heading" classname="marks-module-e2e.spec.js" time="10.489">
+</testcase>
+<testcase name="Marks Module - E2E Tests › Student Marks › should show performance summary cards when data exists" classname="marks-module-e2e.spec.js" time="12.274">
+</testcase>
+<testcase name="Marks Module - E2E Tests › Student Marks › should show marks table with subject, marks, and grade columns" classname="marks-module-e2e.spec.js" time="13.153">
+</testcase>
+<testcase name="Marks Module - E2E Tests › Admin Marks › should load admin marks page with heading and filters" classname="marks-module-e2e.spec.js" time="11.358">
+</testcase>
+<testcase name="Marks Module - E2E Tests › Admin Marks › should show marks table when records exist" classname="marks-module-e2e.spec.js" time="20.888">
+</testcase>
+<testcase name="Marks Module - E2E Tests › Role Security › student cannot access teacher marks page" classname="marks-module-e2e.spec.js" time="13.241">
+</testcase>
+<testcase name="Marks Module - E2E Tests › Role Security › teacher cannot access admin marks page" classname="marks-module-e2e.spec.js" time="13.916">
+</testcase>
+</testsuite>
+</testsuites>
