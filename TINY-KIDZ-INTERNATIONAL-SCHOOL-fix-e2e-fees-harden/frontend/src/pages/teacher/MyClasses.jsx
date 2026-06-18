@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from "react";
-
-import API_BASE from "../../utils/apiConfig";import { useNavigate } from "react-router-dom";
-
-import API_BASE from "../../utils/apiConfig";import { useSelector } from "react-redux";
-
-import API_BASE from "../../utils/apiConfig";import axios from "axios";
-
-import API_BASE from "../../utils/apiConfig";import {
+import API_BASE from "../../utils/apiConfig";
+import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import axios from "axios";
+import {
   Alert,
   Box,
   Button,
@@ -19,8 +16,7 @@ import API_BASE from "../../utils/apiConfig";import {
 } from "@mui/material";
 import TeacherLayout from "../../components/TeacherLayout";
 
-
-import API_BASE from "../../utils/apiConfig";const TeacherMyClasses = () => {
+const TeacherMyClasses = () => {
   const { token } = useSelector((state) => state.auth);
   const navigate = useNavigate();
   const [classes, setClasses] = useState([]);

@@ -31,17 +31,12 @@ import {
   EventNote as EventNoteIcon,
 } from "@mui/icons-material";
 import { logout } from "../../redux/authSlice";
+import Navbar from "../../components/Navbar";
+import Sidebar from "../../components/Sidebar";
+import axios from "axios";
+import { getAuthHeaders } from "../../utils/authSession";
 
-import API_BASE from "../../utils/apiConfig";import Navbar from "../../components/Navbar";
-
-import API_BASE from "../../utils/apiConfig";import Sidebar from "../../components/Sidebar";
-
-import API_BASE from "../../utils/apiConfig";import axios from "axios";
-
-import API_BASE from "../../utils/apiConfig";import { getAuthHeaders } from "../../utils/authSession";
-
-
-import API_BASE from "../../utils/apiConfig";const menuItems = [
+const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, path: "/student/dashboard" },
   { text: "Attendance", icon: <AttendanceIcon />, path: "/student/attendance" },
   { text: "Homework", icon: <HomeworkIcon />, path: "/student/homework" },

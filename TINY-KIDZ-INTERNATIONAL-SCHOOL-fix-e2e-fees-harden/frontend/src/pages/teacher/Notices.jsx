@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-
-import API_BASE from "../../utils/apiConfig";import { useNavigate } from "react-router-dom";
-
-import API_BASE from "../../utils/apiConfig";import {
+import API_BASE from "../../utils/apiConfig";
+import { useNavigate } from "react-router-dom";
+import {
   Box,
   Toolbar,
   Typography,
@@ -17,21 +16,14 @@ import API_BASE from "../../utils/apiConfig";import {
   Select,
 } from "@mui/material";
 import { Notifications as NotificationsIcon } from "@mui/icons-material";
+import Navbar from "../../components/Navbar";
+import Sidebar from "../../components/Sidebar";
+import { logout } from "../../redux/authSlice";
+import { useDispatch } from "react-redux";
+import axios from "axios";
+import { getAuthHeaders } from "../../utils/authSession";
 
-import API_BASE from "../../utils/apiConfig";import Navbar from "../../components/Navbar";
-
-import API_BASE from "../../utils/apiConfig";import Sidebar from "../../components/Sidebar";
-
-import API_BASE from "../../utils/apiConfig";import { logout } from "../../redux/authSlice";
-
-import API_BASE from "../../utils/apiConfig";import { useDispatch } from "react-redux";
-
-import API_BASE from "../../utils/apiConfig";import axios from "axios";
-
-import API_BASE from "../../utils/apiConfig";import { getAuthHeaders } from "../../utils/authSession";
-
-
-import API_BASE from "../../utils/apiConfig";const menuItems = [
+const menuItems = [
   { text: "Dashboard", icon: <NotificationsIcon />, path: "/teacher/dashboard" },
   { text: "Attendance", icon: <NotificationsIcon />, path: "/teacher/attendance" },
   { text: "Homework", icon: <NotificationsIcon />, path: "/teacher/homework" },

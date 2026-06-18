@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-
-import API_BASE from "../../utils/apiConfig";import {
+import API_BASE from "../../utils/apiConfig";
+import {
   Box,
   Typography,
   Card,
@@ -22,8 +22,7 @@ import {
   FileDownload as FileDownloadIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
-
-import API_BASE from "../../utils/apiConfig";import {
+import {
   BarChart,
   Bar,
   XAxis,
@@ -37,13 +36,10 @@ import API_BASE from "../../utils/apiConfig";import {
   ResponsiveContainer,
 } from "recharts";
 import axios from "axios";
+import AdminLayout from "../../components/AdminLayout";
+import { getAuthHeaders } from "../../utils/authSession";
 
-import API_BASE from "../../utils/apiConfig";import AdminLayout from "../../components/AdminLayout";
-
-import API_BASE from "../../utils/apiConfig";import { getAuthHeaders } from "../../utils/authSession";
-
-
-import API_BASE from "../../utils/apiConfig";const API_URL = API_BASE;
+const API_URL = API_BASE;
 
 const Reports = () => {
   const [loading, setLoading] = useState(true);
