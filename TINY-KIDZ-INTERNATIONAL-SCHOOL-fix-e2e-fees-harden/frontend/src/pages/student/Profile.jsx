@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
-import {
+
+import API_BASE from "../../utils/apiConfig";import { useDispatch } from "react-redux";
+
+import API_BASE from "../../utils/apiConfig";import { useNavigate } from "react-router-dom";
+
+import API_BASE from "../../utils/apiConfig";import {
   Alert,
   Box,
   Card,
@@ -21,12 +24,17 @@ import {
   Person as PersonIcon,
 } from "@mui/icons-material";
 import axios from "axios";
-import { logout } from "../../redux/authSlice";
-import Navbar from "../../components/Navbar";
-import Sidebar from "../../components/Sidebar";
-import { getAuthHeaders } from "../../utils/authSession";
 
-const menuItems = [
+import API_BASE from "../../utils/apiConfig";import { logout } from "../../redux/authSlice";
+
+import API_BASE from "../../utils/apiConfig";import Navbar from "../../components/Navbar";
+
+import API_BASE from "../../utils/apiConfig";import Sidebar from "../../components/Sidebar";
+
+import API_BASE from "../../utils/apiConfig";import { getAuthHeaders } from "../../utils/authSession";
+
+
+import API_BASE from "../../utils/apiConfig";const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, path: "/student/dashboard" },
   { text: "Attendance", icon: <AttendanceIcon />, path: "/student/attendance" },
   { text: "Homework", icon: <HomeworkIcon />, path: "/student/homework" },
@@ -45,7 +53,7 @@ const StudentProfile = () => {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/students/me", { headers: getAuthHeaders() })
+      .get("API_BASE + "/students/me", { headers: getAuthHeaders() })
       .then((res) => setProfile(res.data?.data || null))
       .catch((err) => {
         console.error("Error fetching profile:", err);
@@ -123,3 +131,4 @@ const StudentProfile = () => {
 };
 
 export default StudentProfile;
+

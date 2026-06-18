@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+
+import API_BASE from "../../utils/apiConfig";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -37,13 +39,19 @@ import {
   Notifications as NotificationsIcon,
 } from "@mui/icons-material";
 import Navbar from "../../components/Navbar";
-import Sidebar from "../../components/Sidebar";
-import { logout } from "../../redux/authSlice";
-import { useDispatch } from "react-redux";
-import axios from "axios";
-import { getAuthHeaders } from "../../utils/authSession";
 
-const menuItems = [
+import API_BASE from "../../utils/apiConfig";import Sidebar from "../../components/Sidebar";
+
+import API_BASE from "../../utils/apiConfig";import { logout } from "../../redux/authSlice";
+
+import API_BASE from "../../utils/apiConfig";import { useDispatch } from "react-redux";
+
+import API_BASE from "../../utils/apiConfig";import axios from "axios";
+
+import API_BASE from "../../utils/apiConfig";import { getAuthHeaders } from "../../utils/authSession";
+
+
+import API_BASE from "../../utils/apiConfig";const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, path: "/admin/dashboard" },
   { text: "Students", icon: <PeopleIcon />, path: "/admin/students" },
   { text: "Teachers", icon: <SchoolIcon />, path: "/admin/teachers" },
@@ -83,7 +91,7 @@ const AdminNotices = () => {
   const fetchNotices = async () => {
     try {
       setLoading(true);
-      const response = await axios.get("http://localhost:5000/api/notices", {
+      const response = await axios.get("API_BASE + "/notices", {
         headers: getAuthHeaders(),
       });
       setNotices(response.data.data || []);
@@ -151,7 +159,7 @@ const AdminNotices = () => {
     try {
       if (editingNotice) {
         await axios.put(
-          `http://localhost:5000/api/notices/${editingNotice._id}`,
+          `${API_BASE}/notices/${editingNotice._id}`,
           formData,
           {
             headers: getAuthHeaders(),
@@ -159,7 +167,7 @@ const AdminNotices = () => {
         );
         showSnackbar("Notice updated successfully");
       } else {
-        await axios.post("http://localhost:5000/api/notices", formData, {
+        await axios.post("API_BASE + "/notices", formData, {
           headers: getAuthHeaders(),
         });
         showSnackbar("Notice created successfully");
@@ -177,7 +185,7 @@ const AdminNotices = () => {
   const handleDeleteNotice = async (id) => {
     if (window.confirm("Are you sure you want to delete this notice?")) {
       try {
-        await axios.delete(`http://localhost:5000/api/notices/${id}`, {
+        await axios.delete(`${API_BASE}/notices/${id}`, {
           headers: getAuthHeaders(),
         });
         showSnackbar("Notice deleted successfully");
@@ -574,3 +582,4 @@ const AdminNotices = () => {
 };
 
 export default AdminNotices;
+

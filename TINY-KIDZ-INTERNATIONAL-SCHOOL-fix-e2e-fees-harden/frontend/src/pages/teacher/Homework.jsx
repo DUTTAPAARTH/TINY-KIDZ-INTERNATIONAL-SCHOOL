@@ -1,21 +1,28 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import axios from "axios";
-import {
+
+import API_BASE from "../../utils/apiConfig";import axios from "axios";
+
+import API_BASE from "../../utils/apiConfig";import {
   Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, Snackbar, Alert, Typography, Grid, Paper, InputLabel, FormControl, CircularProgress, IconButton
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import dayjs from "dayjs";
 
-const SUBJECTS = [
+import API_BASE from "../../utils/apiConfig";import DeleteIcon from "@mui/icons-material/Delete";
+
+import API_BASE from "../../utils/apiConfig";import dayjs from "dayjs";
+
+
+import API_BASE from "../../utils/apiConfig";const SUBJECTS = [
   "English", "Hindi", "Math", "Science", "Social Studies", "Computer", "Punjabi", "Art", "PE"
 ];
 const STATUS_OPTIONS = ["All", "Upcoming", "Due Today", "Overdue"];
 
 import TeacherLayout from "../../components/TeacherLayout";
-import { useSelector } from "react-redux";
 
-function getStatusColor(daysLeft) {
+import API_BASE from "../../utils/apiConfig";import { useSelector } from "react-redux";
+
+
+import API_BASE from "../../utils/apiConfig";function getStatusColor(daysLeft) {
   if (daysLeft < 0) return "#C62828";
   if (daysLeft === 0) return "#1976D2";
   if (daysLeft <= 2) return "#FFA000";
@@ -34,7 +41,7 @@ const TeacherHomework = () => {
   const { token } = useSelector((state) => state.auth);
   
   const apiRef = useRef(axios.create({
-    baseURL: "http://localhost:5000/api",
+    baseURL: API_BASE,
     headers: { Authorization: `Bearer ${token}` },
   }));
   const api = apiRef.current;
@@ -340,3 +347,4 @@ const TeacherHomework = () => {
 };
 
 export default TeacherHomework;
+

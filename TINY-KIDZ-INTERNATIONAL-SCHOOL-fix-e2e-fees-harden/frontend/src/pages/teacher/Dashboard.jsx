@@ -9,10 +9,11 @@ import {
 import axios from "axios";
 import { getAuthToken } from "../../utils/authSession";
 import { logout } from "../../redux/authSlice";
+import API_BASE from "../../utils/apiConfig";
 
 // --- API Configuration ---
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: API_BASE,
 });
 
 api.interceptors.request.use((config) => {

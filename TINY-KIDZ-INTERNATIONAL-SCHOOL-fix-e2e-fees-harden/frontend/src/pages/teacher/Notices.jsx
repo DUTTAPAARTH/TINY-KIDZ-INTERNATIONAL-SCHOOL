@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import {
+
+import API_BASE from "../../utils/apiConfig";import { useNavigate } from "react-router-dom";
+
+import API_BASE from "../../utils/apiConfig";import {
   Box,
   Toolbar,
   Typography,
@@ -15,14 +17,21 @@ import {
   Select,
 } from "@mui/material";
 import { Notifications as NotificationsIcon } from "@mui/icons-material";
-import Navbar from "../../components/Navbar";
-import Sidebar from "../../components/Sidebar";
-import { logout } from "../../redux/authSlice";
-import { useDispatch } from "react-redux";
-import axios from "axios";
-import { getAuthHeaders } from "../../utils/authSession";
 
-const menuItems = [
+import API_BASE from "../../utils/apiConfig";import Navbar from "../../components/Navbar";
+
+import API_BASE from "../../utils/apiConfig";import Sidebar from "../../components/Sidebar";
+
+import API_BASE from "../../utils/apiConfig";import { logout } from "../../redux/authSlice";
+
+import API_BASE from "../../utils/apiConfig";import { useDispatch } from "react-redux";
+
+import API_BASE from "../../utils/apiConfig";import axios from "axios";
+
+import API_BASE from "../../utils/apiConfig";import { getAuthHeaders } from "../../utils/authSession";
+
+
+import API_BASE from "../../utils/apiConfig";const menuItems = [
   { text: "Dashboard", icon: <NotificationsIcon />, path: "/teacher/dashboard" },
   { text: "Attendance", icon: <NotificationsIcon />, path: "/teacher/attendance" },
   { text: "Homework", icon: <NotificationsIcon />, path: "/teacher/homework" },
@@ -47,7 +56,7 @@ const TeacherNotices = () => {
   const fetchNotices = async () => {
     try {
       setLoading(true);
-      const response = await axios.get("http://localhost:5000/api/notices", {
+      const response = await axios.get("API_BASE + "/notices", {
         headers: getAuthHeaders(),
       });
       setNotices(response.data.data || []);
@@ -298,3 +307,4 @@ const TeacherNotices = () => {
 };
 
 export default TeacherNotices;
+

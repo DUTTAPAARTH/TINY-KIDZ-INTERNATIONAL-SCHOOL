@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
-import axios from "axios";
-import {
+
+import API_BASE from "../../utils/apiConfig";import { useNavigate } from "react-router-dom";
+
+import API_BASE from "../../utils/apiConfig";import { useSelector } from "react-redux";
+
+import API_BASE from "../../utils/apiConfig";import axios from "axios";
+
+import API_BASE from "../../utils/apiConfig";import {
   Alert,
   Box,
   Button,
@@ -15,7 +19,8 @@ import {
 } from "@mui/material";
 import TeacherLayout from "../../components/TeacherLayout";
 
-const TeacherMyClasses = () => {
+
+import API_BASE from "../../utils/apiConfig";const TeacherMyClasses = () => {
   const { token } = useSelector((state) => state.auth);
   const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
@@ -25,7 +30,7 @@ const TeacherMyClasses = () => {
 
   useEffect(() => {
     const api = axios.create({
-      baseURL: "http://localhost:5000/api",
+      baseURL: API_BASE,
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -141,3 +146,4 @@ const TeacherMyClasses = () => {
 };
 
 export default TeacherMyClasses;
+

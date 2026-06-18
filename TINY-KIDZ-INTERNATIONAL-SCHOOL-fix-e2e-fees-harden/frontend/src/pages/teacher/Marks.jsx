@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import API_BASE from "../../utils/apiConfig";
 import {
   Box, Container, Paper, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, FormControl, InputLabel, Select, MenuItem,
@@ -61,7 +62,7 @@ const TeacherMarks = () => {
     (async () => {
       try {
         const headers = getAuthHeaders();
-        const res = await fetch("http://localhost:5000/api/teachers/me", { headers });
+        const res = await fetch("API_BASE + "/teachers/me", { headers });
         const data = await res.json();
         const clsList = data.data?.assignedClasses || data.data?.classIds || [];
         const formatted = clsList.map((c) => ({ id: c._id || c.id, name: `${c.className || ""} ${c.section || ""}`.trim() || c.name }));
@@ -75,7 +76,7 @@ const TeacherMarks = () => {
     (async () => {
       try {
         const headers = getAuthHeaders();
-        const res = await fetch(`http://localhost:5000/api/classes/${selectedClass}`, { headers });
+        const res = await fetch(`${API_BASE}/classes/${selectedClass}`, { headers });
         const data = await res.json();
         if (data.success && data.data?.subjects?.length > 0) {
           const mapped = data.data.subjects.map((s) => ({ id: s._id || s, name: s.name || s }));
@@ -91,7 +92,7 @@ const TeacherMarks = () => {
     setLoading(true);
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`http://localhost:5000/api/students?classId=${selectedClass}&limit=200`, { headers });
+      const res = await fetch(`${API_BASE}/students?classId=${selectedClass}&limit=200`, { headers });
       const data = await res.json();
       const list = data.success ? (data.data || []) : [];
       setStudents(list);
@@ -519,3 +520,4 @@ const TeacherMarks = () => {
 };
 
 export default TeacherMarks;
+

@@ -1,17 +1,23 @@
 import { useState, useEffect } from "react";
-import {
+
+import API_BASE from "../../utils/apiConfig";import {
   Box, Container, Paper, Button, TextField, FormControl, InputLabel,
   Select, MenuItem, Snackbar, Alert, Typography, Chip, IconButton,
   Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Dialog, DialogTitle, DialogContent, DialogActions,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
-import FilterListIcon from "@mui/icons-material/FilterList";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import AdminLayout from "../../components/AdminLayout";
-import { marksAPI } from "../../services/marksService";
 
-const EXAM_TYPES = ["UT1", "UT2", "UT3", "UT4", "Mid Term", "Final Exam"];
+import API_BASE from "../../utils/apiConfig";import FilterListIcon from "@mui/icons-material/FilterList";
+
+import API_BASE from "../../utils/apiConfig";import RefreshIcon from "@mui/icons-material/Refresh";
+
+import API_BASE from "../../utils/apiConfig";import AdminLayout from "../../components/AdminLayout";
+
+import API_BASE from "../../utils/apiConfig";import { marksAPI } from "../../services/marksService";
+
+
+import API_BASE from "../../utils/apiConfig";const EXAM_TYPES = ["UT1", "UT2", "UT3", "UT4", "Mid Term", "Final Exam"];
 
 const AdminMarks = () => {
   const [marks, setMarks] = useState([]);
@@ -32,7 +38,7 @@ const AdminMarks = () => {
   const fetchClasses = async () => {
     try {
       const res = await marksAPI.getMarks();
-      const clsRes = await fetch("http://localhost:5000/api/classes", {
+      const clsRes = await fetch("API_BASE + "/classes", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       const clsData = await clsRes.json();
@@ -278,3 +284,4 @@ const AdminMarks = () => {
 };
 
 export default AdminMarks;
+

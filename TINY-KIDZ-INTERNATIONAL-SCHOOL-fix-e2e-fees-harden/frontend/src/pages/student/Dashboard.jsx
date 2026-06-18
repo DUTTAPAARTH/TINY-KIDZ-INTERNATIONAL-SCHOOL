@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+
+import API_BASE from "../../utils/apiConfig";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
@@ -29,12 +31,17 @@ import {
   EventNote as EventNoteIcon,
 } from "@mui/icons-material";
 import { logout } from "../../redux/authSlice";
-import Navbar from "../../components/Navbar";
-import Sidebar from "../../components/Sidebar";
-import axios from "axios";
-import { getAuthHeaders } from "../../utils/authSession";
 
-const menuItems = [
+import API_BASE from "../../utils/apiConfig";import Navbar from "../../components/Navbar";
+
+import API_BASE from "../../utils/apiConfig";import Sidebar from "../../components/Sidebar";
+
+import API_BASE from "../../utils/apiConfig";import axios from "axios";
+
+import API_BASE from "../../utils/apiConfig";import { getAuthHeaders } from "../../utils/authSession";
+
+
+import API_BASE from "../../utils/apiConfig";const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, path: "/student/dashboard" },
   { text: "Attendance", icon: <AttendanceIcon />, path: "/student/attendance" },
   { text: "Homework", icon: <HomeworkIcon />, path: "/student/homework" },
@@ -69,8 +76,8 @@ const StudentDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       // TODO: Replace with actual API calls when backend endpoints are ready
-      // const studentData = await axios.get('http://localhost:5000/api/students/me');
-      // const attendanceData = await axios.get('http://localhost:5000/api/attendance/student/:id');
+// const studentData = await axios.get(`${API_BASE}/students/me`);
+                    // const attendanceData = await axios.get(`${API_BASE}/attendance/student/:id`);
       // setStats({
       //   attendancePercentage: attendanceData.data.percentage,
       //   pendingHomework: studentData.data.pendingHomework,
@@ -107,7 +114,7 @@ const StudentDashboard = () => {
       // Fetch latest notices
       try {
         const noticesResponse = await axios.get(
-          "http://localhost:5000/api/notices",
+          "API_BASE + "/notices",
           {
             headers: getAuthHeaders(),
           },
@@ -146,7 +153,7 @@ const StudentDashboard = () => {
       // Fetch student fees data
       try {
         const studentResponse = await axios.get(
-          "http://localhost:5000/api/students/me",
+          "API_BASE + "/students/me",
           {
             headers: getAuthHeaders(),
           },
@@ -154,7 +161,7 @@ const StudentDashboard = () => {
         const studentId = studentResponse.data._id;
 
         const feesResponse = await axios.get(
-          `http://localhost:5000/api/fees/student/${studentId}`,
+          `${API_BASE}/fees/student/${studentId}`,
           {
             headers: getAuthHeaders(),
           },
@@ -573,3 +580,4 @@ const StudentDashboard = () => {
 };
 
 export default StudentDashboard;
+

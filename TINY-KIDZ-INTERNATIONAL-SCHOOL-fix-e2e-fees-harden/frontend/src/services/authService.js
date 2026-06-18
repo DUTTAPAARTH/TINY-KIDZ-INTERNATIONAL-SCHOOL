@@ -1,8 +1,9 @@
 import axios from "axios";
 import { getAuthToken } from "../utils/authSession";
+import API_BASE from "../utils/apiConfig";
 
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: API_BASE,
 });
 
 // Add token to requests

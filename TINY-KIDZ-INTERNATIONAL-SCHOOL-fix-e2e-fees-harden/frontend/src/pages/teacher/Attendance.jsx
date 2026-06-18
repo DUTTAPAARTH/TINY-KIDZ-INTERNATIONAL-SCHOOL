@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import API_BASE from "../../utils/apiConfig";
 import {
   Box,
   Container,
@@ -47,7 +48,7 @@ const TeacherAttendance = () => {
     const fetchClasses = async () => {
       try {
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const response = await fetch("http://localhost:5000/api/teachers/me", { headers });
+        const response = await fetch("API_BASE + "/teachers/me", { headers });
         const data = await response.json();
         const clsList = data.data?.assignedClasses || data.data?.classIds || [];
         const formattedClasses = clsList.map((c) => ({ id: c._id || c.id, name: `${c.className || ''} ${c.section || ''}`.trim() || c.name }));
@@ -77,12 +78,12 @@ const TeacherAttendance = () => {
       try {
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        const resStudents = await fetch(`http://localhost:5000/api/students?classId=${selectedClass}&limit=1000`, { headers });
+        const resStudents = await fetch(`${API_BASE}/students?classId=${selectedClass}&limit=1000`, { headers });
         const dataStudents = await resStudents.json();
         const stdList = dataStudents.data || dataStudents;
         setStudents(stdList);
 
-        const resAttendance = await fetch(`http://localhost:5000/api/attendance/class/${selectedClass}/date/${dateToday}`, { headers });
+        const resAttendance = await fetch(`${API_BASE}/attendance/class/${selectedClass}/date/${dateToday}`, { headers });
         
         let initialRecords = {};
         if (resAttendance.ok) {
@@ -154,7 +155,7 @@ const TeacherAttendance = () => {
         records,
       };
 
-      const response = await fetch("http://localhost:5000/api/attendance", {
+      const response = await fetch("API_BASE + "/attendance", {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
@@ -353,3 +354,4 @@ const TeacherAttendance = () => {
 };
 
 export default TeacherAttendance;
+
