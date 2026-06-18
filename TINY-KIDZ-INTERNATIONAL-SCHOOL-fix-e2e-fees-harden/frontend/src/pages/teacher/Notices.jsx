@@ -38,6 +38,7 @@ const TeacherNotices = () => {
   const [loading, setLoading] = useState(false);
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [filterPriority, setFilterPriority] = useState("All");
+  const [filterAudience, setFilterAudience] = useState("All");
 
   useEffect(() => {
     fetchNotices();
@@ -94,7 +95,9 @@ const TeacherNotices = () => {
   const filteredNotices = notices.filter((notice) => {
     const priorityMatch =
       filterPriority === "All" || notice.priority === filterPriority;
-    return priorityMatch;
+    const audienceMatch =
+      filterAudience === "All" || notice.audience === filterAudience;
+    return priorityMatch && audienceMatch;
   });
 
   return (
@@ -131,8 +134,8 @@ const TeacherNotices = () => {
           </Typography>
         </Box>
 
-        {/* Filter */}
-        <Box sx={{ mb: 3 }}>
+        {/* Filters */}
+        <Box sx={{ mb: 3, display: "flex", gap: 2, flexWrap: "wrap" }}>
           <FormControl sx={{ minWidth: 200 }}>
             <InputLabel>Filter by Priority</InputLabel>
             <Select
@@ -144,6 +147,18 @@ const TeacherNotices = () => {
               <MenuItem value="Normal">Normal</MenuItem>
               <MenuItem value="Important">Important</MenuItem>
               <MenuItem value="Urgent">Urgent</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl sx={{ minWidth: 200 }}>
+            <InputLabel>Target Audience</InputLabel>
+            <Select
+              value={filterAudience}
+              label="Target Audience"
+              onChange={(e) => setFilterAudience(e.target.value)}
+            >
+              <MenuItem value="All">Everyone</MenuItem>
+              <MenuItem value="Teachers">Teachers Only</MenuItem>
+              <MenuItem value="Students">Students Only</MenuItem>
             </Select>
           </FormControl>
         </Box>
