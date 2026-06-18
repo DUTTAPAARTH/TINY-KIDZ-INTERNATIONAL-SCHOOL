@@ -109,7 +109,7 @@ const StudentDashboard = () => {
       // Fetch latest notices
       try {
         const noticesResponse = await axios.get(
-          "API_BASE + "/notices",
+          `${API_BASE}`/notices",
           {
             headers: getAuthHeaders(),
           },
@@ -148,7 +148,7 @@ const StudentDashboard = () => {
       // Fetch student fees data
       try {
         const studentResponse = await axios.get(
-          "API_BASE + "/students/me",
+          `${API_BASE}`/students/me",
           {
             headers: getAuthHeaders(),
           },

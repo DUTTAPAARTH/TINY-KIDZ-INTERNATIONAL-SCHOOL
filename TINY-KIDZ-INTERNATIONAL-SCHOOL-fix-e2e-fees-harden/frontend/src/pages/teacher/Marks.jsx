@@ -62,7 +62,7 @@ const TeacherMarks = () => {
     (async () => {
       try {
         const headers = getAuthHeaders();
-        const res = await fetch("API_BASE + "/teachers/me", { headers });
+        const res = await fetch(`${API_BASE}`/teachers/me", { headers });
         const data = await res.json();
         const clsList = data.data?.assignedClasses || data.data?.classIds || [];
         const formatted = clsList.map((c) => ({ id: c._id || c.id, name: `${c.className || ""} ${c.section || ""}`.trim() || c.name }));
