@@ -258,7 +258,7 @@ const TeacherDashboard = () => {
                 <div className="bg-white p-6 rounded-xl editorial-shadow flex flex-col justify-between border-l-4 border-green-600 card-hover transition-all duration-200">
                     <span className="text-gray-500 text-xs uppercase tracking-widest font-semibold mb-2">Homework Active</span>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-gray-900">14</span>
+                        <span className="text-3xl font-bold text-gray-900">{String(recentHomework.length).padStart(2, '0')}</span>
                         <span className="text-sm text-gray-500">Submissions</span>
                     </div>
                 </div>
@@ -267,7 +267,7 @@ const TeacherDashboard = () => {
                 <div className="bg-white p-6 rounded-xl editorial-shadow flex flex-col justify-between border-l-4 border-gray-400 card-hover transition-all duration-200">
                     <span className="text-gray-500 text-xs uppercase tracking-widest font-semibold mb-2">Unread Notices</span>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-gray-900">05</span>
+                        <span className="text-3xl font-bold text-gray-900">{String(latestNotices.length).padStart(2, '0')}</span>
                         <span className="text-sm text-gray-500">Internal</span>
                     </div>
                 </div>
@@ -330,7 +330,7 @@ const TeacherDashboard = () => {
                             </div>
                         </div>
                         <div className="space-y-2">
-                             {recentHomework.map((hw) => (
+                             {recentHomework.slice(0, 3).map((hw) => (
                                 <div key={hw._id} className="flex items-center justify-between py-4 group hover:bg-gray-50 px-4 rounded-xl transition-all duration-200 cursor-pointer">
                                     <div className="flex items-center gap-4">
                                         <div className={`h-12 w-12 rounded-xl flex items-center justify-center 
@@ -427,7 +427,7 @@ const TeacherDashboard = () => {
                             </button>
                         </div>
                         <div className="space-y-6">
-                            {latestNotices.map((notice) => (
+                            {latestNotices.slice(0, 3).map((notice) => (
                                 <div key={notice._id} className={`relative pl-6 border-l-2 ${notice.urgent ? "border-primary" : "border-gray-300"}`}>
                                     {notice.urgent && <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-primary"></div>}
                                     <h4 className="text-sm font-bold text-gray-900 leading-tight">{notice.title}</h4>
