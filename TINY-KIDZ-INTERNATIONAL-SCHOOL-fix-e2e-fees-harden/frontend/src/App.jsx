@@ -4,6 +4,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 import { useSelector } from "react-redux";
 import LoginPage from "./pages/LoginPage";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -239,6 +240,7 @@ function App() {
           element={<Navigate to={isAuthenticated ? "/login" : "/login"} replace />}
         />
       </Routes>
+      <Analytics />
     </Router>
   );
 }
