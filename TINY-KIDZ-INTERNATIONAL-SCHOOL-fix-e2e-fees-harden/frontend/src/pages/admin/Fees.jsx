@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useCallback, useState } from "react";
 import {
   Alert,
   Autocomplete,
@@ -30,20 +30,31 @@ import {
   TableRow,
   TextField,
   Typography,
+  CircularProgress,
 } from "@mui/material";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
+
 import { DataGrid } from "@mui/x-data-grid";
 import AdminLayout from "../../components/AdminLayout";
 import DemandSlip from "../../components/fees/DemandSlip";
 import PaymentReceipt from "../../components/fees/PaymentReceipt";
 import PrintDialog from "../../components/fees/PrintDialog";
 import FeeReportsTab from "../../components/fees/FeeReportsTab";
+import PaymentModal from "../../components/fees/PaymentModal";
+import PaymentLedger from "../../components/fees/PaymentLedger";
+import BulkPaymentModal from "../../components/fees/BulkPaymentModal";
+import FeeDiscountDialog from "../../components/fees/FeeDiscountDialog";
+import FeeRolloverDialog from "../../components/fees/FeeRolloverDialog";
+import FeeImportDialog from "../../components/fees/FeeImportDialog";
 import API from "../../services/authService";
 
-const ACADEMIC_YEARS = ["2024-25", "2025-26"];
+const ACADEMIC_YEARS = Array.from({ length: 11 }, (_, i) => {
+  const start = 2024 + i;
+  const end = start + 1;
+  return `${start}-${String(end).slice(2)}`;
+});
 const FEE_TYPES = [
   "Tuition",
   "Admission",
@@ -58,24 +69,8 @@ const PAYMENT_METHODS = ["Cash", "UPI", "Cheque", "DD", "Bank Transfer"];
 
 const formatCurrency = (amount = 0) => `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 
-const getLateDetails = ({ dueDate, paymentDate, lateFeePerDay = 0 }) => {
-  if (!dueDate || !paymentDate) return { lateDays: 0, lateFeeAmount: 0 };
-
-  const due = new Date(dueDate);
-  const paid = new Date(paymentDate);
-  due.setHours(0, 0, 0, 0);
-  paid.setHours(0, 0, 0, 0);
-
-  const diffMs = paid.getTime() - due.getTime();
-  if (diffMs <= 0) return { lateDays: 0, lateFeeAmount: 0 };
-
-  const lateDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  const lateFeeAmount = lateDays * Number(lateFeePerDay || 0);
-  return { lateDays, lateFeeAmount };
-};
-
-const getDefaultDueDates = (academicYear = "2024-25") => {
-  const startYear = Number((academicYear || "2024-25").split("-")[0]);
+const getDefaultDueDates = (academicYear = "2025-26") => {
+  const startYear = Number((academicYear || "2025-26").split("-")[0]);
   return {
     q1DueDate: `${startYear}-04-10`,
     q2DueDate: `${startYear}-07-10`,
@@ -86,21 +81,21 @@ const getDefaultDueDates = (academicYear = "2024-25") => {
 
 const emptyStructureForm = {
   classId: "",
-  academicYear: "2024-25",
+  academicYear: "2025-26",
   tuitionFee: "",
   admissionFee: 0,
   uniformFee: 0,
   activityFee: 0,
   transportFee: 0,
   lateFeePerDay: 50,
-  ...getDefaultDueDates("2024-25"),
+  ...getDefaultDueDates("2025-26"),
 };
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 const AdminFees = () => {
   const [currentTab, setCurrentTab] = useState(0);
-  const [yearFilter, setYearFilter] = useState("2024-25");
+  const [yearFilter, setYearFilter] = useState("2025-26");
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
   const [studentsLoaded, setStudentsLoaded] = useState(false);
@@ -125,6 +120,14 @@ const AdminFees = () => {
   const [demandSlipOpen, setDemandSlipOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [editPaymentOpen, setEditPaymentOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(null);
+  const [editPaymentLoading, setEditPaymentLoading] = useState(false);
+  const [bulkPaymentOpen, setBulkPaymentOpen] = useState(false);
+  const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
+  const [discountTarget, setDiscountTarget] = useState(null);
+  const [rolloverOpen, setRolloverOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [historyRows, setHistoryRows] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [demandSlipLoading, setDemandSlipLoading] = useState(false);
@@ -149,25 +152,15 @@ const AdminFees = () => {
     },
   });
 
-  const [paymentForm, setPaymentForm] = useState({
-    amount: "",
-    method: "Cash",
-    chequeNumber: "",
-    bankName: "",
-    transactionId: "",
-    paymentDate: todayStr(),
-    note: "",
-  });
-
   const [classGenerateForm, setClassGenerateForm] = useState({
     classId: "",
-    academicYear: "2024-25",
+    academicYear: "2025-26",
     feeTypes: ["Tuition"],
     quarter: "Q1",
     customAmount: "",
   });
   const [schoolGenerateForm, setSchoolGenerateForm] = useState({
-    academicYear: "2024-25",
+    academicYear: "2025-26",
     feeTypes: ["Tuition"],
     quarter: "Q1",
     customAmount: "",
@@ -175,14 +168,14 @@ const AdminFees = () => {
   const [rangeGenerateForm, setRangeGenerateForm] = useState({
     fromClass: "1",
     toClass: "10",
-    academicYear: "2024-25",
+    academicYear: "2025-26",
     feeTypes: ["Tuition"],
     quarter: "Q1",
     customAmount: "",
   });
   const [studentGenerateForm, setStudentGenerateForm] = useState({
     studentId: "",
-    academicYear: "2024-25",
+    academicYear: "2025-26",
     feeType: "Miscellaneous",
     quarter: "",
     amount: "",
@@ -196,7 +189,7 @@ const AdminFees = () => {
   const [recordPageSize, setRecordPageSize] = useState(10);
   const [recordRowCount, setRecordRowCount] = useState(0);
   const [recordClassFilter, setRecordClassFilter] = useState("");
-  const [recordAcademicYearFilter, setRecordAcademicYearFilter] = useState("2024-25");
+  const [recordAcademicYearFilter, setRecordAcademicYearFilter] = useState("2025-26");
   const [recordQuarterFilter, setRecordQuarterFilter] = useState("All");
   const [recordStatusFilter, setRecordStatusFilter] = useState("All");
   const [recordFeeTypeFilter, setRecordFeeTypeFilter] = useState("All");
@@ -321,15 +314,6 @@ const AdminFees = () => {
 
   const openCollectPayment = (record) => {
     setSelectedRecord(record);
-    setPaymentForm({
-      amount: "",
-      method: "Cash",
-      chequeNumber: "",
-      bankName: "",
-      transactionId: "",
-      paymentDate: todayStr(),
-      note: "",
-    });
     setCollectPaymentOpen(true);
   };
 
@@ -378,24 +362,43 @@ const AdminFees = () => {
     }
   };
 
-  const handleRecordPayment = async () => {
-    if (!selectedRecord?._id) return;
-    if (!paymentForm.amount || Number(paymentForm.amount) < 1) {
-      showSnackbar("Enter a valid amount", "error");
-      return;
+  const handleDeletePayment = async (paymentId) => {
+    if (!window.confirm("Delete this payment entry? This will reverse paid amount.")) return;
+    try {
+      await API.delete(`/fees/payment/${paymentId}`);
+      showSnackbar("Payment deleted successfully", "success");
+      if (selectedRecord) {
+        await openPaymentHistory(selectedRecord);
+      }
+      await Promise.all([fetchRecords(), fetchTodayCollection(), fetchDefaulters()]);
+    } catch (error) {
+      showSnackbar(error?.response?.data?.message || "Failed to delete payment", "error");
     }
+  };
 
+  const handleEditPayment = async (paymentId, paymentData) => {
+    if (!selectedRecord?._id) return;
+    try {
+      setEditPaymentLoading(true);
+      const res = await API.patch(`/fees/payment/${selectedRecord._id}/${paymentId}`, paymentData);
+      showSnackbar("Payment updated successfully", "success");
+      setEditPaymentOpen(false);
+      setEditingPayment(null);
+      await openPaymentHistory(selectedRecord);
+      await Promise.all([fetchRecords(), fetchTodayCollection()]);
+    } catch (error) {
+      showSnackbar(error?.response?.data?.message || "Failed to update payment", "error");
+    } finally {
+      setEditPaymentLoading(false);
+    }
+  };
+
+  const handlePaymentAdded = async (paymentData) => {
+    if (!selectedRecord?._id) return;
     const payload = {
       feeRecordId: selectedRecord._id,
-      amount: Number(paymentForm.amount),
-      method: paymentForm.method,
-      paymentDate: paymentForm.paymentDate,
-      note: paymentForm.note,
-      chequeNumber: paymentForm.chequeNumber || undefined,
-      bankName: paymentForm.bankName || undefined,
-      transactionId: paymentForm.transactionId || undefined,
+      ...paymentData,
     };
-
     try {
       const res = await API.post("/fees/payment", payload);
       showSnackbar(
@@ -409,18 +412,9 @@ const AdminFees = () => {
     }
   };
 
-  const handleDeletePayment = async (paymentId) => {
-    if (!window.confirm("Delete this payment entry? This will reverse paid amount.")) return;
-    try {
-      await API.delete(`/fees/payment/${paymentId}`);
-      showSnackbar("Payment deleted successfully", "success");
-      if (selectedRecord) {
-        await openPaymentHistory(selectedRecord);
-      }
-      await Promise.all([fetchRecords(), fetchTodayCollection(), fetchDefaulters()]);
-    } catch (error) {
-      showSnackbar(error?.response?.data?.message || "Failed to delete payment", "error");
-    }
+  const openEditPayment = (payment) => {
+    setEditingPayment(payment);
+    setEditPaymentOpen(true);
   };
 
   useEffect(() => {
@@ -611,19 +605,31 @@ const AdminFees = () => {
     if (!window.confirm("Are you sure you want to generate fee records?")) return;
     try {
       const res = await API.post(endpoint, payload);
-      const summary = res.data
-        ? ` Created: ${res.data.created || 0}, Skipped: ${res.data.skipped || 0}`
-        : "";
-      showSnackbar(`${successMessage}.${summary}`);
+      const data = res.data || {};
+      const summary = ` Created: ${data.created || 0}, Skipped: ${data.skipped || 0}`;
+
+      let message = `${successMessage}.${summary}`;
+      if (data.message) message = data.message + summary;
+      if (data.errors?.length) {
+        const errorList = data.errors.map((e) => `  ${e.class}: ${e.error}`).join("\n");
+        message += `\nErrors:\n${errorList}`;
+        showSnackbar(message, "warning");
+      } else {
+        showSnackbar(message, data.created > 0 ? "success" : "info");
+      }
       setClassDialogOpen(false);
       setSchoolDialogOpen(false);
       setRangeDialogOpen(false);
       setStudentDialogOpen(false);
       if (currentTab === 2) fetchRecords();
     } catch (error) {
-      const backendMessage = error?.response?.data?.message;
-      const backendError = error?.response?.data?.error;
-      showSnackbar(backendError ? `${backendMessage}: ${backendError}` : backendMessage || "Failed to generate fee records", "error");
+      const errData = error?.response?.data;
+      let backendMessage = errData?.message || "Failed to generate fee records";
+      if (errData?.errors?.length) {
+        const errorList = errData.errors.map((e) => `  ${e.class}: ${e.error}`).join("\n");
+        backendMessage += `\n${errorList}`;
+      }
+      showSnackbar(backendMessage, "error");
     }
   };
 
@@ -648,7 +654,8 @@ const AdminFees = () => {
         const studentName = r.studentId?.userId?.name || "N/A";
         const admissionNo = r.studentId?.admissionNumber || "-";
         const classLabel = getClassLabel(r.classId);
-        const dueAmount = Number(r.totalAmount || 0) - Number(r.paidAmount || 0);
+        const netAmt = Number(r.netAmount || r.totalAmount || 0);
+        const dueAmount = Math.max(0, netAmt - Number(r.paidAmount || 0));
 
         return {
           ...r,
@@ -656,23 +663,13 @@ const AdminFees = () => {
           studentName,
           admissionNo,
           classLabel,
+          netAmount: netAmt,
           dueAmount,
           dueDateView: r.dueDate ? String(r.dueDate).slice(0, 10) : "-",
         };
       }),
     [records],
   );
-
-  const selectedDue = Math.max(
-    0,
-    Number(selectedRecord?.totalAmount || 0) - Number(selectedRecord?.paidAmount || 0),
-  );
-  const latePreview = getLateDetails({
-    dueDate: selectedRecord?.dueDate,
-    paymentDate: paymentForm.paymentDate,
-    lateFeePerDay: selectedRecord?.lateFeePerDay || 50,
-  });
-  const totalPayable = selectedDue + latePreview.lateFeeAmount;
 
   const recordColumns = [
     { field: "studentName", headerName: "Student", width: 160 },
@@ -687,6 +684,25 @@ const AdminFees = () => {
       valueFormatter: (value) => formatCurrency(value),
     },
     {
+      field: "discount",
+      headerName: "Disc",
+      width: 90,
+      renderCell: (params) => {
+        const r = params.row;
+        if (r.discountType && r.discountType !== "none") {
+          const ds = r.discountType === "percentage" ? `${r.discountValue}%` : `₹${r.discountValue}`;
+          return <Chip label={ds} size="small" sx={{ bgcolor: "#E3F2FD", color: "#1565C0", fontWeight: "bold" }} />;
+        }
+        return <Typography variant="caption" color="text.disabled">—</Typography>;
+      },
+    },
+    {
+      field: "netAmount",
+      headerName: "Net ₹",
+      width: 100,
+      valueFormatter: (value, row) => formatCurrency(row.netAmount || row.totalAmount),
+    },
+    {
       field: "paidAmount",
       headerName: "Paid ₹",
       width: 100,
@@ -698,50 +714,51 @@ const AdminFees = () => {
       width: 100,
       valueFormatter: (value) => formatCurrency(value),
     },
-    { field: "status", headerName: "Status", width: 110 },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 110,
+      renderCell: (params) => {
+        const status = params.value || "DUE";
+        const map = {
+          PAID: { bg: "#E8F5E9", color: "#2E7D32" },
+          PARTIAL: { bg: "#FFF8E1", color: "#F57F17" },
+          DUE: { bg: "#FFEBEE", color: "#C62828" },
+          OVERDUE: { bg: "#FCE4EC", color: "#880E4F" },
+        };
+        const s = map[status] || map.DUE;
+        return <Chip label={status} size="small" sx={{ bgcolor: s.bg, color: s.color, fontWeight: "bold" }} />;
+      },
+    },
     { field: "dueDateView", headerName: "Due Date", width: 110 },
     {
       field: "actions",
       headerName: "Actions",
-      width: 220,
+      width: 280,
       sortable: false,
       filterable: false,
       renderCell: (params) => (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, py: 0.75, width: "100%" }}>
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            onClick={() => openDemandSlip(params.row.studentId?._id)}
-            sx={{ textTransform: "none", width: "100%" }}
-          >
-            Demand Slip
-          </Button>
-          {Number(params.row?.dueAmount || 0) > 0 ? (
-            <Button
-              size="small"
-              variant="contained"
-              onClick={() => openCollectPayment(params.row)}
-              sx={{ bgcolor: "#D32F2F", "&:hover": { bgcolor: "#B71C1C" }, textTransform: "none", width: "100%" }}
-            >
-              Collect Payment
+          <Box sx={{ display: "flex", gap: 0.5 }}>
+            <Button size="small" variant="outlined" color="error" onClick={() => openDemandSlip(params.row.studentId?._id)}
+              sx={{ textTransform: "none", flex: 1, fontSize: 11 }}>Slip</Button>
+            <Button size="small" variant="outlined" color="error" onClick={() => openPaymentHistory(params.row)}
+              sx={{ textTransform: "none", flex: 1, fontSize: 11 }}>Ledger</Button>
+          </Box>
+          <Box sx={{ display: "flex", gap: 0.5 }}>
+            {Number(params.row?.dueAmount || 0) > 0 ? (
+              <Button size="small" variant="contained" onClick={() => openCollectPayment(params.row)}
+                sx={{ bgcolor: "#D32F2F", "&:hover": { bgcolor: "#B71C1C" }, textTransform: "none", flex: 1, fontSize: 11 }}>
+                Pay
+              </Button>
+            ) : (
+              <Chip label="✓ PAID" size="small" sx={{ bgcolor: "#E8F5E9", color: "#2E7D32", fontWeight: "bold", flex: 1 }} />
+            )}
+            <Button size="small" variant="outlined" color="info" onClick={() => { setDiscountTarget(params.row); setDiscountDialogOpen(true); }}
+              sx={{ textTransform: "none", flex: 1, fontSize: 11, color: params.row.discountType && params.row.discountType !== "none" ? "#1565C0" : "#666", borderColor: params.row.discountType && params.row.discountType !== "none" ? "#90CAF9" : undefined }}>
+              {params.row.discountType && params.row.discountType !== "none" ? "Edit Disc" : "Discount"}
             </Button>
-          ) : (
-            <Chip
-              label="✓ PAID"
-              size="small"
-              sx={{ bgcolor: "#E8F5E9", color: "#2E7D32", fontWeight: "bold", width: "100%" }}
-            />
-          )}
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            onClick={() => openPaymentHistory(params.row)}
-            sx={{ textTransform: "none", width: "100%" }}
-          >
-            View Ledger
-          </Button>
+          </Box>
         </Box>
       ),
     },
@@ -798,7 +815,7 @@ const AdminFees = () => {
           Fee Management
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-          Tiny Kidz International School - Academic Year 2024-25
+          Tiny Kidz International School
         </Typography>
 
         <Paper
@@ -821,6 +838,23 @@ const AdminFees = () => {
           <Typography variant="body2" sx={{ mt: 0.5 }}>
             Cash: {formatCurrency(todayCollection.breakdown.Cash)} | UPI: {formatCurrency(todayCollection.breakdown.UPI)} | Cheque: {formatCurrency(todayCollection.breakdown.Cheque)}
           </Typography>
+        </Paper>
+
+        <Paper sx={{ mb: 2, p: 2, bgcolor: "#FAFAFA", border: "1px solid #E0E0E0" }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: "#333" }}>
+            Quick Start — New Academic Session
+          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Chip label="1. Set Fee Structure" size="small" color={currentTab === 0 ? "error" : "default"} variant={currentTab === 0 ? "filled" : "outlined"} />
+            <ArrowForwardRoundedIcon sx={{ fontSize: 14, color: "#999" }} />
+            <Chip label="2. Generate Fee Records" size="small" color={currentTab === 1 ? "error" : "default"} variant={currentTab === 1 ? "filled" : "outlined"} />
+            <ArrowForwardRoundedIcon sx={{ fontSize: 14, color: "#999" }} />
+            <Chip label="3. Collect Payments" size="small" color={currentTab === 2 ? "error" : "default"} variant={currentTab === 2 ? "filled" : "outlined"} />
+            <ArrowForwardRoundedIcon sx={{ fontSize: 14, color: "#999" }} />
+            <Chip label="4. Track Defaulters" size="small" color={currentTab === 3 ? "error" : "default"} variant={currentTab === 3 ? "filled" : "outlined"} />
+            <ArrowForwardRoundedIcon sx={{ fontSize: 14, color: "#999" }} />
+            <Chip label="5. Reports" size="small" color={currentTab === 4 ? "error" : "default"} variant={currentTab === 4 ? "filled" : "outlined"} />
+          </Box>
         </Paper>
 
         <Paper sx={{ mb: 2 }}>
@@ -848,7 +882,7 @@ const AdminFees = () => {
               <Typography variant="h5" sx={{ fontWeight: 700, color: "#D32F2F" }}>
                 Fee Structure
               </Typography>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                 <FormControl size="small" sx={{ minWidth: 160 }}>
                   <InputLabel>Academic Year</InputLabel>
                   <Select value={yearFilter} label="Academic Year" onChange={(e) => setYearFilter(e.target.value)}>
@@ -857,8 +891,14 @@ const AdminFees = () => {
                     ))}
                   </Select>
                 </FormControl>
-                <Button variant="contained" onClick={openCreateStructureDialog} sx={{ bgcolor: "#D32F2F", "&:hover": { bgcolor: "#B71C1C" } }}>
-                  Set Fee Structure
+                <Button variant="contained" onClick={openCreateStructureDialog} sx={{ bgcolor: "#D32F2F", "&:hover": { bgcolor: "#B71C1C" }, textTransform: "none" }}>
+                  + Set Structure
+                </Button>
+                <Button variant="outlined" color="error" onClick={() => setRolloverOpen(true)} sx={{ textTransform: "none" }}>
+                  Rollover
+                </Button>
+                <Button variant="outlined" color="error" onClick={() => setImportOpen(true)} sx={{ textTransform: "none" }}>
+                  Import CSV
                 </Button>
               </Box>
             </Box>
@@ -969,6 +1009,14 @@ const AdminFees = () => {
                 </Card>
               </Grid>
             </Grid>
+
+            <Box sx={{ mt: 3, p: 2, bgcolor: "#FFF5F5", borderRadius: 2, border: "1px solid #F2C7C7" }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: "#D32F2F", mb: 1 }}>Quick Actions</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Already generated fee records? Skip to payment collection.</Typography>
+              <Button variant="contained" onClick={() => setBulkPaymentOpen(true)} sx={{ bgcolor: "#D32F2F", "&:hover": { bgcolor: "#B71C1C" }, textTransform: "none", mr: 2 }}>
+                Bulk Payment Entry
+              </Button>
+            </Box>
           </Paper>
         )}
 
@@ -1462,184 +1510,107 @@ const AdminFees = () => {
           </DialogActions>
         </Dialog>
 
-        <Dialog open={collectPaymentOpen} onClose={() => setCollectPaymentOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Collect Payment</DialogTitle>
+        <PaymentModal
+          isOpen={collectPaymentOpen}
+          fee={selectedRecord}
+          onClose={() => setCollectPaymentOpen(false)}
+          onPaymentAdded={handlePaymentAdded}
+          loading={historyLoading}
+        />
+
+        <PaymentLedger
+          isOpen={paymentHistoryOpen}
+          feeSummary={{
+            fee_id: selectedRecord?._id,
+            fee_amount: selectedRecord?.totalAmount,
+            total_paid: selectedRecord?.paidAmount,
+            balance: Math.max(0, Number(selectedRecord?.totalAmount || 0) - Number(selectedRecord?.paidAmount || 0)),
+            payment_status:
+              Number(selectedRecord?.paidAmount || 0) >= Number(selectedRecord?.totalAmount || 0)
+                ? "paid"
+                : Number(selectedRecord?.paidAmount || 0) > 0
+                  ? "partial"
+                  : "unpaid",
+            last_payment_date: historyRows[0]?.paymentDate || null,
+          }}
+          payments={historyRows}
+          onClose={() => setPaymentHistoryOpen(false)}
+          onEdit={(payment) => openEditPayment(payment)}
+          onDelete={(paymentId) => handleDeletePayment(paymentId)}
+          onAddMore={() => {
+            setPaymentHistoryOpen(false);
+            setCollectPaymentOpen(true);
+          }}
+          loading={historyLoading}
+        />
+
+        <Dialog open={editPaymentOpen} onClose={() => { setEditPaymentOpen(false); setEditingPayment(null); }} maxWidth="sm" fullWidth>
+          <DialogTitle>Edit Payment</DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
-              <Paper sx={{ p: 2, bgcolor: "#F5F5F5", border: "1px solid #E0E0E0" }}>
-                <Typography variant="body2"><strong>Student:</strong> {selectedRecord?.studentName || "-"}</Typography>
-                <Typography variant="body2"><strong>Class:</strong> {selectedRecord?.classLabel || "-"}</Typography>
-                <Typography variant="body2"><strong>Fee:</strong> {selectedRecord?.quarter ? `${selectedRecord?.quarter} ` : ""}{selectedRecord?.feeType} Fee</Typography>
-                <Typography variant="body2"><strong>Total:</strong> {formatCurrency(selectedRecord?.totalAmount || 0)}</Typography>
-                <Typography variant="body2"><strong>Paid:</strong> {formatCurrency(selectedRecord?.paidAmount || 0)}</Typography>
-                <Typography variant="body2"><strong>Due:</strong> {formatCurrency(selectedDue)}</Typography>
-                <Typography variant="body2"><strong>Due Date:</strong> {selectedRecord?.dueDateView || "-"}</Typography>
-
-                {latePreview.lateDays > 0 && (
-                  <Box sx={{ mt: 1.5, p: 1.25, bgcolor: "#FFF3E0", border: "1px solid #FFCC80", borderRadius: 1 }}>
-                    <Typography variant="body2" sx={{ color: "#E65100", display: "flex", alignItems: "center", gap: 0.75 }}>
-                      <WarningAmberRoundedIcon fontSize="small" /> Payment is {latePreview.lateDays} days late
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: "#E65100" }}>
-                      Late Fee: {formatCurrency(latePreview.lateFeeAmount)} ({latePreview.lateDays} days x {formatCurrency(selectedRecord?.lateFeePerDay || 50)})
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: "#E65100", fontWeight: 700 }}>
-                      Total Payable: {formatCurrency(totalPayable)}
-                    </Typography>
-                  </Box>
-                )}
-              </Paper>
-
               <TextField
                 label="Amount ₹"
                 type="number"
                 required
-                value={paymentForm.amount}
-                onChange={(e) => setPaymentForm((prev) => ({ ...prev, amount: e.target.value }))}
-                inputProps={{ min: 1, max: totalPayable }}
-                helperText={`Total payable including late fee: ${formatCurrency(totalPayable)}`}
+                value={editingPayment?.amount || ""}
+                onChange={(e) => setEditingPayment((p) => p ? { ...p, amount: e.target.value } : null)}
+                inputProps={{ min: 1 }}
                 fullWidth
               />
-
               <FormControl fullWidth>
                 <InputLabel>Payment Method</InputLabel>
                 <Select
                   label="Payment Method"
-                  value={paymentForm.method}
-                  onChange={(e) =>
-                    setPaymentForm((prev) => ({
-                      ...prev,
-                      method: e.target.value,
-                      chequeNumber: "",
-                      bankName: "",
-                      transactionId: "",
-                    }))
-                  }
+                  value={editingPayment?.method || "Cash"}
+                  onChange={(e) => setEditingPayment((p) => p ? { ...p, method: e.target.value } : null)}
                 >
                   {PAYMENT_METHODS.map((method) => (
                     <MenuItem key={method} value={method}>{method}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
-
-              {(paymentForm.method === "Cheque" || paymentForm.method === "DD") && (
-                <>
-                  <TextField
-                    label="Cheque Number"
-                    required
-                    value={paymentForm.chequeNumber}
-                    onChange={(e) => setPaymentForm((prev) => ({ ...prev, chequeNumber: e.target.value }))}
-                    fullWidth
-                  />
-                  <TextField
-                    label="Bank Name"
-                    required
-                    value={paymentForm.bankName}
-                    onChange={(e) => setPaymentForm((prev) => ({ ...prev, bankName: e.target.value }))}
-                    fullWidth
-                  />
-                </>
-              )}
-
-              {(paymentForm.method === "UPI" || paymentForm.method === "Bank Transfer") && (
-                <TextField
-                  label="Transaction ID"
-                  value={paymentForm.transactionId}
-                  onChange={(e) => setPaymentForm((prev) => ({ ...prev, transactionId: e.target.value }))}
-                  fullWidth
-                />
-              )}
-
               <TextField
                 label="Payment Date"
                 type="date"
-                value={paymentForm.paymentDate}
-                onChange={(e) => setPaymentForm((prev) => ({ ...prev, paymentDate: e.target.value }))}
+                value={editingPayment?.paymentDate ? String(editingPayment.paymentDate).slice(0, 10) : ""}
+                onChange={(e) => setEditingPayment((p) => p ? { ...p, paymentDate: e.target.value } : null)}
                 InputLabelProps={{ shrink: true }}
                 fullWidth
               />
-
               <TextField
                 label="Note"
-                placeholder="e.g. 1st installment, partial payment"
-                value={paymentForm.note}
-                onChange={(e) => setPaymentForm((prev) => ({ ...prev, note: e.target.value }))}
+                value={editingPayment?.note || ""}
+                onChange={(e) => setEditingPayment((p) => p ? { ...p, note: e.target.value } : null)}
+                fullWidth
+              />
+              <TextField
+                label="Reference Number"
+                value={editingPayment?.receiptNumber || ""}
+                onChange={(e) => setEditingPayment((p) => p ? { ...p, receiptNumber: e.target.value } : null)}
                 fullWidth
               />
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setCollectPaymentOpen(false)}>Cancel</Button>
+            <Button onClick={() => { setEditPaymentOpen(false); setEditingPayment(null); }}>Cancel</Button>
             <Button
               variant="contained"
-              onClick={handleRecordPayment}
+              disabled={editPaymentLoading || !editingPayment?.amount || Number(editingPayment?.amount) < 1}
+              onClick={() => {
+                if (editingPayment) {
+                  handleEditPayment(editingPayment._id, {
+                    amount: Number(editingPayment.amount),
+                    method: editingPayment.method,
+                    paymentDate: editingPayment.paymentDate,
+                    note: editingPayment.note,
+                    referenceNumber: editingPayment.receiptNumber,
+                  });
+                }
+              }}
               sx={{ bgcolor: "#D32F2F", "&:hover": { bgcolor: "#B71C1C" } }}
             >
-              Record Payment
+              {editPaymentLoading ? <CircularProgress size={20} color="inherit" /> : "Update Payment"}
             </Button>
-          </DialogActions>
-        </Dialog>
-
-        <Dialog open={paymentHistoryOpen} onClose={() => setPaymentHistoryOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>View Ledger</DialogTitle>
-          <DialogContent>
-            {historyLoading ? (
-              <Typography sx={{ py: 3 }}>Loading payment history...</Typography>
-            ) : historyRows.length === 0 ? (
-              <Typography sx={{ py: 3 }} color="text.secondary">No payments recorded for this fee record.</Typography>
-            ) : (
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#FFEBEE" }}>
-                    <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Amount ₹</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Method</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Receipt No</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Late Fee ₹</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Note</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Action</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {historyRows.map((payment) => (
-                    <TableRow key={payment._id}>
-                      <TableCell>{payment.paymentDate ? String(payment.paymentDate).slice(0, 10) : "-"}</TableCell>
-                      <TableCell>{formatCurrency(payment.amount)}</TableCell>
-                      <TableCell>
-                        <Chip size="small" label={payment.method || "-"} color="error" variant="outlined" />
-                      </TableCell>
-                      <TableCell>{payment.receiptNumber || "-"}</TableCell>
-                      <TableCell>{formatCurrency(payment.lateFeeAmount || 0)}</TableCell>
-                      <TableCell>{payment.note || "-"}</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: "flex", gap: 1 }}>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => openReceipt(payment._id)}
-                            sx={{ bgcolor: "#D32F2F", "&:hover": { bgcolor: "#B71C1C" }, textTransform: "none" }}
-                          >
-                            Print Receipt
-                          </Button>
-                          <Button
-                            size="small"
-                            color="error"
-                            variant="outlined"
-                            onClick={() => handleDeletePayment(payment._id)}
-                            sx={{ textTransform: "none" }}
-                          >
-                            Delete
-                          </Button>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setPaymentHistoryOpen(false)}>Close</Button>
           </DialogActions>
         </Dialog>
 
@@ -1662,6 +1633,31 @@ const AdminFees = () => {
             <PaymentReceipt payment={receiptData} />
           )}
         </PrintDialog>
+
+        <BulkPaymentModal
+          isOpen={bulkPaymentOpen}
+          onClose={() => setBulkPaymentOpen(false)}
+          classes={classes}
+          onComplete={() => { fetchRecords(); fetchTodayCollection(); }}
+        />
+
+        <FeeDiscountDialog
+          isOpen={discountDialogOpen}
+          onClose={() => { setDiscountDialogOpen(false); setDiscountTarget(null); }}
+          feeRecord={discountTarget}
+          onApplied={() => { fetchRecords(); }}
+        />
+
+        <FeeRolloverDialog
+          isOpen={rolloverOpen}
+          onClose={() => setRolloverOpen(false)}
+          onComplete={() => fetchStructures()}
+        />
+
+        <FeeImportDialog
+          isOpen={importOpen}
+          onClose={() => setImportOpen(false)}
+        />
 
         <Snackbar
           open={snackbar.open}

@@ -75,6 +75,26 @@ const feeRecordSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    discountType: {
+      type: String,
+      enum: ["none", "percentage", "fixed"],
+      default: "none",
+    },
+    discountValue: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    discountReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    netAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: true },
 );
@@ -82,8 +102,18 @@ const feeRecordSchema = new mongoose.Schema(
 feeRecordSchema.virtual("dueAmount").get(function () {
   return Math.max(
     0,
-    Number(this.totalAmount || 0) - Number(this.paidAmount || 0),
+    Number(this.netAmount || this.totalAmount || 0) - Number(this.paidAmount || 0),
   );
+});
+
+feeRecordSchema.virtual("discountAmount").get(function () {
+  if (this.discountType === "percentage") {
+    return Math.round(Number(this.totalAmount || 0) * Number(this.discountValue || 0) / 100);
+  }
+  if (this.discountType === "fixed") {
+    return Number(this.discountValue || 0);
+  }
+  return 0;
 });
 
 feeRecordSchema.set("toJSON", { virtuals: true });
@@ -98,7 +128,18 @@ feeRecordSchema.index({ classId: 1, status: 1, dueDate: 1 });
 feeRecordSchema.index({ classId: 1, feeType: 1, dueDate: 1 });
 
 feeRecordSchema.pre("save", function () {
-  const total = Number(this.totalAmount || 0);
+  if (this.isModified("totalAmount") || this.isModified("discountType") || this.isModified("discountValue")) {
+    if (this.discountType === "percentage") {
+      this.netAmount = Math.round(Number(this.totalAmount || 0) * (100 - Number(this.discountValue || 0)) / 100);
+    } else if (this.discountType === "fixed") {
+      this.netAmount = Math.max(0, Number(this.totalAmount || 0) - Number(this.discountValue || 0));
+    } else {
+      this.netAmount = Number(this.totalAmount || 0);
+    }
+  }
+  if (!this.netAmount) this.netAmount = Number(this.totalAmount || 0);
+
+  const total = Number(this.netAmount || this.totalAmount || 0);
   const paid = Number(this.paidAmount || 0);
   const today = new Date();
   const due = this.dueDate ? new Date(this.dueDate) : null;

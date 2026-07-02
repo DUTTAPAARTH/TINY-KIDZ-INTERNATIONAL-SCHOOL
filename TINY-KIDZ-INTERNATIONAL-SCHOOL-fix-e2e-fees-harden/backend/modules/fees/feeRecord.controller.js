@@ -238,7 +238,16 @@ const generateFeesForClass = async (req, res) => {
     if (result.error) {
       return res
         .status(result.error.status)
-        .json({ message: result.error.message });
+        .json({ message: result.error.message, ...result });
+    }
+
+    if (!result.created && result.total > 0) {
+      return res.status(200).json({
+        ...result,
+        message: result.skipped === result.total
+          ? "All records already exist. Nothing new to generate."
+          : "No records created. Check fee structure amounts are set for selected fee types.",
+      });
     }
 
     return res.status(201).json(result);
@@ -276,30 +285,58 @@ const generateFeesForSchool = async (req, res) => {
         .json({ message: "Custom amount must be greater than zero" });
     }
 
-    const structures = await FeeStructure.find({ academicYear }).select(
-      "classId",
-    );
+    const structures = await FeeStructure.find({ academicYear }).lean();
+
+    if (!structures.length) {
+      return res.status(400).json({
+        created: 0,
+        skipped: 0,
+        total: 0,
+        message: `No fee structures found for academic year ${academicYear}. Set fee structures first.`,
+        errors: [{ class: "N/A", error: "No fee structures exist for this academic year" }],
+      });
+    }
+
+    // Fetch class names separately for error messages
+    const allClassIds = structures.map((s) => s.classId);
+    const classDocs = await Class.find({ _id: { $in: allClassIds } })
+      .select("className section")
+      .lean();
+    const classMap = {};
+    for (const c of classDocs) {
+      classMap[String(c._id)] = `${c.className}-${c.section || "A"}`;
+    }
+
     let created = 0;
     let skipped = 0;
     let total = 0;
+    const errors = [];
 
     for (const structure of structures) {
+      const classId = structure.classId;
+      const classLabel = classMap[String(classId)] || `Class ${String(classId).slice(-6)}`;
       const result = await generateForClassCore({
-        classId: structure.classId,
+        classId,
         academicYear,
         feeTypes,
         quarter,
         customAmount,
       });
 
-      if (!result.error) {
+      if (result.error) {
+        errors.push({ class: classLabel, error: result.error.message });
+      } else {
         created += result.created;
         skipped += result.skipped;
         total += result.total;
       }
     }
 
-    return res.status(201).json({ created, skipped, total });
+    const response = { created, skipped, total };
+    if (errors.length) response.errors = errors;
+    if (!created && !errors.length) response.message = "All records already exist or fee amounts are zero for selected types";
+    if (!created && errors.length) response.message = `Generated for ${structures.length - errors.length} of ${structures.length} classes. ${errors.length} classes had errors.`;
+    return res.status(errors.length && !created ? 400 : 201).json(response);
   } catch (error) {
     return res
       .status(500)
@@ -354,11 +391,21 @@ const generateFeesForClassRange = async (req, res) => {
       return !Number.isNaN(n) && n >= minClass && n <= maxClass;
     });
 
+    if (!ranged.length) {
+      return res.status(400).json({
+        created: 0, skipped: 0, total: 0,
+        message: `No classes found in range ${fromClass}-${toClass}`,
+        errors: [{ class: "N/A", error: "No active classes match this range" }],
+      });
+    }
+
     let created = 0;
     let skipped = 0;
     let total = 0;
+    const errors = [];
 
     for (const cls of ranged) {
+      const classLabel = `${cls.className}-${cls.section || "A"}`;
       const result = await generateForClassCore({
         classId: cls._id,
         academicYear,
@@ -367,14 +414,20 @@ const generateFeesForClassRange = async (req, res) => {
         customAmount,
       });
 
-      if (!result.error) {
+      if (result.error) {
+        errors.push({ class: classLabel, error: result.error.message });
+      } else {
         created += result.created;
         skipped += result.skipped;
         total += result.total;
       }
     }
 
-    return res.status(201).json({ created, skipped, total });
+    const response = { created, skipped, total };
+    if (errors.length) response.errors = errors;
+    if (!created && !errors.length) response.message = "All records already exist or fee amounts are zero for selected types";
+    if (!created && errors.length) response.message = `Generated for ${ranged.length - errors.length} of ${ranged.length} classes. ${errors.length} classes had errors.`;
+    return res.status(errors.length && !created ? 400 : 201).json(response);
   } catch (error) {
     return res
       .status(500)

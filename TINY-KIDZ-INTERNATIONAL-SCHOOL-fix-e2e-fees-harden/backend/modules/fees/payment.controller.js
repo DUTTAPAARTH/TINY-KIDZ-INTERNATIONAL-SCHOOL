@@ -116,10 +116,8 @@ const recordPayment = async (req, res) => {
       lateFeePerDay: feeRecord.lateFeePerDay,
     });
 
-    const totalDue =
-      Number(feeRecord.totalAmount || 0) -
-      Number(feeRecord.paidAmount || 0) +
-      Number(lateFeeAmount || 0);
+    const netAmt = Number(feeRecord.netAmount || feeRecord.totalAmount || 0);
+    const totalDue = netAmt - Number(feeRecord.paidAmount || 0) + Number(lateFeeAmount || 0);
 
     if (Number(amount) > totalDue) {
       return res.status(400).json({ message: "Amount exceeds total due" });
@@ -148,16 +146,6 @@ const recordPayment = async (req, res) => {
 
     feeRecord.paidAmount = Number(feeRecord.paidAmount || 0) + Number(amount);
     feeRecord.lateFeeAmount = Number(lateFeeAmount || 0);
-
-    if (feeRecord.paidAmount >= Number(feeRecord.totalAmount || 0)) {
-      feeRecord.status = "PAID";
-    } else if (feeRecord.paidAmount > 0) {
-      feeRecord.status = "PARTIAL";
-    } else if (new Date() > new Date(feeRecord.dueDate)) {
-      feeRecord.status = "OVERDUE";
-    } else {
-      feeRecord.status = "DUE";
-    }
 
     await feeRecord.save();
 
@@ -298,10 +286,8 @@ const getDemandSlip = async (req, res) => {
     const generatedAt = new Date();
 
     const items = feeRecords.map((record) => {
-      const dueAmount = Math.max(
-        0,
-        Number(record.totalAmount || 0) - Number(record.paidAmount || 0),
-      );
+      const netAmt = Number(record.netAmount || record.totalAmount || 0);
+      const dueAmount = Math.max(0, netAmt - Number(record.paidAmount || 0));
       const { lateDays, lateFeeAmount } = getLateFeeDetails({
         paymentDate: generatedAt,
         dueDate: record.dueDate,
@@ -416,6 +402,106 @@ const getStudentReceipts = async (req, res) => {
   }
 };
 
+const getFeePaymentLedger = async (req, res) => {
+  try {
+    const { feeId } = req.params;
+
+    const feeRecord = await FeeRecord.findById(feeId);
+    if (!feeRecord) return res.status(404).json({ message: "Fee record not found" });
+
+    const payments = await Payment.find({ feeRecordId: feeId })
+      .populate("recordedBy", "name email")
+      .sort({ paymentDate: -1, createdAt: -1 });
+
+    const netAmt = Number(feeRecord.netAmount || feeRecord.totalAmount || 0);
+    const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const balance = Math.max(0, netAmt - totalPaid);
+    const paymentStatus = balance === 0 ? "paid" : totalPaid > 0 ? "partial" : "unpaid";
+
+    return res.json({
+      fee_summary: {
+        fee_id: feeRecord._id,
+        student_id: feeRecord.studentId,
+        class_id: feeRecord.classId,
+        fee_type: feeRecord.feeType,
+        quarter: feeRecord.quarter,
+        fee_amount: feeRecord.totalAmount,
+        total_paid: totalPaid,
+        balance,
+        payment_status: paymentStatus,
+        due_date: feeRecord.dueDate,
+        last_payment_date: payments[0]?.paymentDate || null,
+      },
+      payments,
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to fetch payment ledger", error: error.message });
+  }
+};
+
+const updatePayment = async (req, res) => {
+  try {
+    const { feeId, paymentId } = req.params;
+    const { amount, method, paymentDate, note, chequeNumber, bankName, transactionId, referenceNumber } = req.body;
+
+    const payment = await Payment.findById(paymentId);
+    if (!payment) return res.status(404).json({ message: "Payment not found" });
+    if (String(payment.feeRecordId) !== String(feeId)) {
+      return res.status(400).json({ message: "Payment does not belong to this fee record" });
+    }
+
+    const oldAmount = Number(payment.amount || 0);
+
+    if (amount !== undefined) {
+      if (Number(amount) < 1) {
+        return res.status(400).json({ message: "Payment amount must be greater than zero" });
+      }
+      payment.amount = Number(amount);
+    }
+    if (method !== undefined) payment.method = method;
+    if (paymentDate !== undefined) payment.paymentDate = new Date(paymentDate);
+    if (note !== undefined) payment.note = note;
+    if (chequeNumber !== undefined) payment.chequeNumber = chequeNumber;
+    if (bankName !== undefined) payment.bankName = bankName;
+    if (transactionId !== undefined) payment.transactionId = transactionId;
+    if (referenceNumber !== undefined) payment.receiptNumber = referenceNumber;
+
+    await payment.save();
+
+    // Recalculate fee record totals
+    const feeRecord = await FeeRecord.findById(feeId);
+    if (!feeRecord) return res.status(404).json({ message: "Fee record not found" });
+
+    const allPayments = await Payment.find({ feeRecordId: feeId, _id: { $ne: paymentId } });
+    const otherTotal = allPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const newTotalPaid = otherTotal + Number(payment.amount || 0);
+
+    feeRecord.paidAmount = newTotalPaid;
+    await feeRecord.save();
+
+    const netAmt = Number(feeRecord.netAmount || feeRecord.totalAmount || 0);
+    const balance = Math.max(0, netAmt - newTotalPaid);
+    const paymentStatus = balance === 0 ? "paid" : newTotalPaid > 0 ? "partial" : "unpaid";
+
+    return res.json({
+      message: "Payment updated successfully",
+      payment,
+      updated_fee: {
+        fee_id: feeRecord._id,
+        total_paid: newTotalPaid,
+        balance,
+        payment_status: paymentStatus,
+      },
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to update payment", error: error.message });
+  }
+};
+
 const deletePayment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -434,16 +520,6 @@ const deletePayment = async (req, res) => {
     );
 
     const dueDate = new Date(feeRecord.dueDate);
-    if (feeRecord.paidAmount >= Number(feeRecord.totalAmount || 0)) {
-      feeRecord.status = "PAID";
-    } else if (feeRecord.paidAmount > 0) {
-      feeRecord.status = "PARTIAL";
-    } else if (new Date() > dueDate) {
-      feeRecord.status = "OVERDUE";
-    } else {
-      feeRecord.status = "DUE";
-    }
-
     await feeRecord.save();
     await Payment.findByIdAndDelete(id);
 
@@ -464,4 +540,6 @@ module.exports = {
   getDemandSlip,
   getReceipt,
   getStudentReceipts,
+  getFeePaymentLedger,
+  updatePayment,
 };

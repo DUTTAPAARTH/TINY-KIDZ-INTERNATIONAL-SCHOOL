@@ -38,7 +38,13 @@ const {
   getDemandSlip,
   getReceipt,
   getStudentReceipts,
+  getFeePaymentLedger,
+  updatePayment,
 } = require("./payment.controller");
+const { applyDiscount, removeDiscount } = require("./feeDiscount.controller");
+const { recordBulkPayment } = require("./bulkPayment.controller");
+const { rolloverStructures } = require("./feeRollover.controller");
+const { importFeeRecords } = require("./feeImport.controller");
 
 const router = express.Router();
 
@@ -50,6 +56,7 @@ router.get("/structure", authorize("admin"), getAllStructures);
 router.post("/structure", authorize("admin"), createStructure);
 router.put("/structure/:id", authorize("admin"), updateStructure);
 router.delete("/structure/:id", authorize("admin"), deleteStructure);
+router.post("/structure/rollover", authorize("admin"), rolloverStructures);
 
 // Phase 2 - Generate Fee Records (Admin)
 router.post("/generate/class", authorize("admin"), generateFeesForClass);
@@ -64,6 +71,7 @@ router.put("/update-overdue", authorize("admin"), updateOverdueStatus);
 router.delete("/cleanup", authorize("admin"), cleanupZeroRecords);
 router.delete("/cleanup-zero-records", authorize("admin"), cleanupZeroRecords);
 router.get("/fix-statuses", authorize("admin"), fixStatuses);
+router.post("/import", authorize("admin"), importFeeRecords);
 
 // Phase 5 - Reports and Analytics (Admin)
 router.get("/summary", authorize("admin"), getFeeSummary);
@@ -77,13 +85,20 @@ router.get("/reports/export", authorize("admin"), exportFeeData);
 
 // Phase 3 - Payment Recording
 router.post("/payment", authorize("admin"), recordPayment);
+router.post("/payment/bulk", authorize("admin"), recordBulkPayment);
 router.get("/payment/today", authorize("admin"), getTodayCollection);
 router.get("/payment/student/:id", getPaymentHistory);
+router.get("/payment/:feeId/ledger", authorize("admin"), getFeePaymentLedger);
 router.get("/payment/:id", getPaymentById);
+router.patch("/payment/:feeId/:paymentId", authorize("admin"), updatePayment);
 router.delete("/payment/:id", authorize("admin"), deletePayment);
 router.get("/demand-slip/:studentId", getDemandSlip);
 router.get("/receipt/student/:studentId", getStudentReceipts);
 router.get("/receipt/:paymentId", getReceipt);
+
+// Fee Record Discount management
+router.put("/:feeId/discount", authorize("admin"), applyDiscount);
+router.delete("/:feeId/discount", authorize("admin"), removeDiscount);
 
 // Admin + Student own records (validated in controller)
 router.get("/student/:studentId", getStudentFeeRecords);
